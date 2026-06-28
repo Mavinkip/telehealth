@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug - Telehealth System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #debug-console {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-height: 300px;
+            background: #1a1a2e;
+            color: #0f0;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 9999;
+            border-top: 2px solid #0f0;
+        }
+        .debug-log { margin: 2px 0; padding: 2px 5px; border-bottom: 1px solid #333; }
+        .debug-error { color: #ff4444; }
+        .debug-success { color: #44ff44; }
+        .debug-info { color: #44ddff; }
+        .debug-warn { color: #ffaa44; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container mt-5">
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Loading Telehealth System...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="debug-console">
+        <div><strong>🔍 Debug Console</strong> <span id="debug-status" class="text-warning">Initializing...</span></div>
+        <div id="debug-logs"></div>
+    </div>
+
+    <script>
+        const debugLogs = document.getElementById('debug-logs');
+        const debugStatus = document.getElementById('debug-status');
+        
+        function debugLog(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `debug-log debug-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            div.textContent = `[${timestamp}] ${message}`;
+            debugLogs.appendChild(div);
+            debugLogs.scrollTop = debugLogs.scrollHeight;
+            console.log(`[${type}]`, message);
+        }
+
+        // Override console methods
+        const origLog = console.log;
+        const origError = console.error;
+        const origWarn = console.warn;
+        
+        console.log = function(...args) { 
+            debugLog(args.join(' '), 'info'); 
+            origLog.apply(console, args);
+        };
+        console.error = function(...args) { 
+            debugLog(args.join(' '), 'error'); 
+            origError.apply(console, args);
+        };
+        console.warn = function(...args) { 
+            debugLog(args.join(' '), 'warn'); 
+            origWarn.apply(console, args);
+        };
+
+        // Global error handlers
+        window.addEventListener('error', (e) => {
+            debugLog(`❌ ERROR: ${e.message} at ${e.filename}:${e.lineno}`, 'error');
+            debugStatus.textContent = '❌ Error detected';
+            debugStatus.className = 'text-danger';
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            debugLog(`❌ Unhandled Rejection: ${e.reason}`, 'error');
+            debugStatus.textContent = '❌ Error detected';
+            debugStatus.className = 'text-danger';
+        });
+
+        debugLog('🚀 Debug mode enabled', 'success');
+        debugLog(`📍 Current URL: ${window.location.href}`, 'info');
+        
+        // Check script loading
+        document.addEventListener('DOMContentLoaded', () => {
+            debugLog('📄 DOM loaded', 'success');
+            
+            // Check all script tags
+            const scripts = document.querySelectorAll('script[src]');
+            debugLog(`📦 Found ${scripts.length} script tags`, 'info');
+            scripts.forEach((script, i) => {
+                debugLog(`  ${i+1}. ${script.src}`, 'info');
+            });
+        });
+    </script>
+
+    <!-- Load scripts one by one with error checking -->
+    <script>
+        debugLog('📦 Loading Supabase...', 'info');
+    </script>
+    <script src="js/supabase.min.js"></script>
+    <script>
+        if (typeof supabase !== 'undefined') {
+            debugLog('✅ Supabase loaded successfully', 'success');
+        } else {
+            debugLog('❌ Supabase failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading Bootstrap...', 'info');
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        if (typeof bootstrap !== 'undefined') {
+            debugLog('✅ Bootstrap loaded successfully', 'success');
+        } else {
+            debugLog('❌ Bootstrap failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading config.js...', 'info');
+    </script>
+    <script src="js/config.js"></script>
+    <script>
+        if (typeof SUPABASE_CONFIG !== 'undefined') {
+            debugLog('✅ Config loaded successfully', 'success');
+            debugLog(`  URL: ${SUPABASE_CONFIG.url}`, 'info');
+        } else {
+            debugLog('❌ Config failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading auth.js...', 'info');
+    </script>
+    <script src="js/auth.js"></script>
+    <script>
+        if (typeof authManager !== 'undefined') {
+            debugLog('✅ Auth loaded successfully', 'success');
+        } else {
+            debugLog('❌ Auth failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading patient.js...', 'info');
+    </script>
+    <script src="js/patient.js"></script>
+    <script>
+        if (typeof patientManager !== 'undefined') {
+            debugLog('✅ Patient loaded successfully', 'success');
+        } else {
+            debugLog('❌ Patient failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading doctor.js...', 'info');
+    </script>
+    <script src="js/doctor.js"></script>
+    <script>
+        if (typeof doctorManager !== 'undefined') {
+            debugLog('✅ Doctor loaded successfully', 'success');
+        } else {
+            debugLog('❌ Doctor failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading admin.js...', 'info');
+    </script>
+    <script src="js/admin.js"></script>
+    <script>
+        if (typeof adminManager !== 'undefined') {
+            debugLog('✅ Admin loaded successfully', 'success');
+        } else {
+            debugLog('❌ Admin failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading chat.js...', 'info');
+    </script>
+    <script src="js/chat.js"></script>
+    <script>
+        if (typeof chatManager !== 'undefined') {
+            debugLog('✅ Chat loaded successfully', 'success');
+        } else {
+            debugLog('❌ Chat failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading video.js...', 'info');
+    </script>
+    <script src="js/video.js"></script>
+    <script>
+        if (typeof videoManager !== 'undefined') {
+            debugLog('✅ Video loaded successfully', 'success');
+        } else {
+            debugLog('❌ Video failed to load', 'error');
+        }
+    </script>
+
+    <script>
+        debugLog('📦 Loading app.js...', 'info');
+    </script>
+    <script src="js/app.js"></script>
+    <script>
+        debugLog('✅ App initialized', 'success');
+        debugStatus.textContent = '✅ Ready';
+        debugStatus.className = 'text-success';
+    </script>
+</body>
+</html>

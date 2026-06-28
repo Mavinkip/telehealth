@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #0087CC;
+  --primary-dark: #0066a3;
+  --secondary: #2C3E50;
+  --background: #F4F8FB;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-secondary: var(--secondary);
+  --color-background: var(--background);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--secondary);
+  font-family: var(--font-sans);
+}
