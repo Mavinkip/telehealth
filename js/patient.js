@@ -1,11 +1,16 @@
 /*
- * File: patient.js - Updated with mobile video call support
+ * File: patient.js - Updated with post-call payment and physical booking payment
  */
 
 class PatientManager {
     constructor() {
         this.currentView = 'dashboard';
         this.availableDoctors = [];
+        // Pricing
+        this.pricing = {
+            video_call: 300,      // Paid after doctor ends call
+            physical: 500         // Paid at booking
+        };
     }
 
     showDashboard() {
@@ -102,16 +107,26 @@ class PatientManager {
             .order('scheduled_at', { ascending: true })
             .limit(3);
 
-        const { data: recentRecords } = await supabase
-            .from('medical_records')
+        // Get completed video calls waiting for payment
+        const { data: pendingPayments } = await supabase
+            .from('appointments')
             .select(`
                 *,
-                doctor:profiles!medical_records_doctor_id_fkey (full_name),
-                appointment:appointments (scheduled_at)
+                doctor:profiles!appointments_doctor_id_fkey (full_name, specialty)
             `)
             .eq('patient_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(3);
+            .eq('status', 'completed')
+            .eq('payment_status', 'pending')
+            .eq('consultation_type', 'video');
+
+        // Get total paid
+        const { data: paidAppointments } = await supabase
+            .from('appointments')
+            .select('amount_paid')
+            .eq('patient_id', userId)
+            .eq('payment_status', 'paid');
+
+        const totalSpent = paidAppointments?.reduce((sum, apt) => sum + (apt.amount_paid || 0), 0) || 0;
 
         container.innerHTML = `
             <div class="row">
@@ -120,6 +135,35 @@ class PatientManager {
                     <p class="text-muted">Welcome to your telehealth portal</p>
                 </div>
             </div>
+
+            ${pendingPayments && pendingPayments.length > 0 ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-white">
+                                <h5 class="mb-0">⚠️ Pending Payments (Video Calls)</h5>
+                            </div>
+                            <div class="card-body">
+                                ${pendingPayments.map(apt => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                        <div>
+                                            <strong>${apt.doctor.full_name}</strong>
+                                            <br><small>Video Consultation - ${new Date(apt.scheduled_at).toLocaleDateString()}</small>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-warning">KES ${apt.amount_paid || 300}</span>
+                                            <button class="btn btn-sm btn-success ms-2" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">
+                                                💳 Pay Now
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
             <div class="row mt-4">
                 <div class="col-6 col-md-3">
                     <div class="card dashboard-card" onclick="patientManager.loadView('appointments')">
@@ -158,52 +202,44 @@ class PatientManager {
                     </div>
                 </div>
             </div>
-            <div class="row mt-4">
+
+            <div class="row mt-3">
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0">📅 Upcoming Appointments</h5>
+                            <h5 class="mb-0">💰 Payment Summary</h5>
                         </div>
                         <div class="card-body">
-                            ${upcomingAppointments && upcomingAppointments.length > 0 
-                                ? upcomingAppointments.map(apt => `
-                                    <div class="appointment-card upcoming p-3 mb-2 bg-light rounded">
-                                        <h6>${apt.doctor.full_name} - ${apt.doctor.specialty}</h6>
-                                        <p class="mb-1"><small>${new Date(apt.scheduled_at).toLocaleString()}</small></p>
-                                        <div class="btn-group w-100" role="group">
-                                            <button class="btn btn-sm btn-primary" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor.full_name}')">
-                                                🎥 Join Call
-                                            </button>
-                                            <button class="btn btn-sm btn-secondary" onclick="patientManager.openChatForAppointment('${apt.id}', '${apt.doctor_id}')">
-                                                💬 Chat
-                                            </button>
-                                        </div>
-                                    </div>
-                                `).join('')
-                                : '<p class="text-muted">No upcoming appointments</p>'
-                            }
-                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">
-                                View All Appointments
-                            </button>
+                            <p><strong>Total Paid:</strong> KES ${totalSpent.toLocaleString()}</p>
+                            <p><strong>Pending Video Payments:</strong> ${pendingPayments?.length || 0}</p>
+                            <p><strong>Pricing:</strong></p>
+                            <ul class="small">
+                                <li>🎥 Video Call: <strong>KES 300</strong> (pay after call)</li>
+                                <li>🏥 Physical Consultation: <strong>KES 500</strong> (pay at booking)</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0">📋 Recent Records</h5>
+                            <h5 class="mb-0">📅 Upcoming</h5>
                         </div>
                         <div class="card-body">
-                            ${recentRecords && recentRecords.length > 0
-                                ? recentRecords.map(record => `
-                                    <div class="p-3 mb-2 bg-light rounded">
-                                        <h6>${record.doctor.full_name}</h6>
-                                        <p class="mb-1"><small>${new Date(record.created_at).toLocaleDateString()}</small></p>
-                                        <p class="mb-0 text-muted small">${record.soap_notes?.substring(0, 80)}...</p>
+                            ${upcomingAppointments && upcomingAppointments.length > 0 
+                                ? upcomingAppointments.map(apt => `
+                                    <div class="p-2 mb-2 bg-light rounded">
+                                        <h6>${apt.doctor.full_name}</h6>
+                                        <p class="mb-0 small">${new Date(apt.scheduled_at).toLocaleString()}</p>
+                                        <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">${apt.consultation_type}</span>
+                                        ${apt.payment_status === 'paid' ? '<span class="badge bg-success">Paid</span>' : '<span class="badge bg-secondary">Pending</span>'}
                                     </div>
                                 `).join('')
-                                : '<p class="text-muted">No recent records</p>'
+                                : '<p class="text-muted">No upcoming appointments</p>'
                             }
+                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">
+                                View All
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -247,8 +283,10 @@ class PatientManager {
                                         <thead>
                                             <tr>
                                                 <th>Doctor</th>
+                                                <th>Type</th>
                                                 <th>Date</th>
                                                 <th>Status</th>
+                                                <th>Payment</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
@@ -256,13 +294,42 @@ class PatientManager {
                                             ${appointments.map(apt => `
                                                 <tr>
                                                     <td><strong>${apt.doctor.full_name}</strong><br><small>${apt.doctor.specialty}</small></td>
+                                                    <td><span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">${apt.consultation_type || 'video'}</span></td>
                                                     <td><small>${new Date(apt.scheduled_at).toLocaleString()}</small></td>
-                                                    <td><span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">${apt.status}</span></td>
+                                                    <td>
+                                                        <span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">
+                                                            ${apt.status}
+                                                        </span>
+                                                        ${apt.status === 'completed' && apt.payment_status === 'pending' && apt.consultation_type === 'video' ? 
+                                                            '<br><small class="text-warning">⚠️ Pay now</small>' : ''}
+                                                    </td>
+                                                    <td>
+                                                        ${apt.payment_status === 'paid' 
+                                                            ? '<span class="badge bg-success">✅ Paid</span>' 
+                                                            : apt.payment_status === 'pending' && apt.status === 'completed' && apt.consultation_type === 'video'
+                                                            ? '<span class="badge bg-warning">⏳ Due</span>'
+                                                            : apt.payment_status === 'pending' && apt.consultation_type === 'physical'
+                                                            ? '<span class="badge bg-danger">❌ Unpaid</span>'
+                                                            : '<span class="badge bg-secondary">-</span>'
+                                                        }
+                                                        ${apt.amount_paid ? `<br><small>KES ${apt.amount_paid}</small>` : ''}
+                                                    </td>
                                                     <td>
                                                         ${apt.status === 'scheduled' ? `
-                                                            <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor.full_name}')">🎥 Join</button>
-                                                            <button class="btn btn-sm btn-secondary mb-1 w-100" onclick="patientManager.openChatForAppointment('${apt.id}', '${apt.doctor_id}')">💬 Chat</button>
+                                                            ${apt.consultation_type === 'video' ? `
+                                                                <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor.full_name}')">🎥 Join</button>
+                                                            ` : `
+                                                                ${apt.payment_status === 'paid' ? `
+                                                                    <button class="btn btn-sm btn-success mb-1 w-100" onclick="alert('📍 Physical consultation at our clinic. Address sent to your email.')">📍 Location</button>
+                                                                ` : `
+                                                                    <button class="btn btn-sm btn-warning mb-1 w-100" onclick="patientManager.payPhysicalBooking('${apt.id}', ${apt.amount_paid || 500})">💳 Pay to Book</button>
+                                                                `}
+                                                            `}
+                                                            <button class="btn btn-sm btn-secondary w-100" onclick="patientManager.openChatForAppointment('${apt.id}', '${apt.doctor_id}')">💬 Chat</button>
                                                             <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('${apt.id}')">❌ Cancel</button>
+                                                        ` : apt.status === 'completed' && apt.payment_status === 'pending' && apt.consultation_type === 'video' ? `
+                                                            <button class="btn btn-sm btn-warning w-100" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">💳 Pay Now</button>
+                                                            <button class="btn btn-sm btn-secondary w-100 mt-1" onclick="patientManager.openChatForAppointment('${apt.id}', '${apt.doctor_id}')">💬 Chat</button>
                                                         ` : apt.status === 'completed' ? '✅ Done' : '❌ Cancelled'}
                                                     </td>
                                                 </tr>
@@ -301,6 +368,13 @@ class PatientManager {
                                     </select>
                                 </div>
                                 <div class="mb-3">
+                                    <label class="form-label">Consultation Type</label>
+                                    <select class="form-select" id="consultationType" required>
+                                        <option value="video">🎥 Video Call - KES 300 (pay after call)</option>
+                                        <option value="physical">🏥 Physical - KES 500 (pay now)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
                                     <label class="form-label">Date & Time</label>
                                     <input type="datetime-local" class="form-control" id="appointmentDate" required>
                                 </div>
@@ -308,7 +382,11 @@ class PatientManager {
                                     <label class="form-label">Notes (Optional)</label>
                                     <textarea class="form-control" id="appointmentNotes" rows="2" placeholder="Any specific concerns..."></textarea>
                                 </div>
-                                <button type="submit" class="btn btn-primary w-100">📅 Book Appointment</button>
+                                <div id="paymentInfo" class="alert alert-info">
+                                    💰 <strong>Video Call:</strong> Pay KES 300 after call<br>
+                                    🏥 <strong>Physical:</strong> Pay KES 500 now
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100" id="bookBtn">📅 Book Now</button>
                             </form>
                         </div>
                     </div>
@@ -320,9 +398,27 @@ class PatientManager {
         const modal = new bootstrap.Modal(document.getElementById('bookingModal'));
         modal.show();
 
+        // Update payment info when consultation type changes
+        document.getElementById('consultationType').addEventListener('change', (e) => {
+            const type = e.target.value;
+            const info = document.getElementById('paymentInfo');
+            const btn = document.getElementById('bookBtn');
+            
+            if (type === 'video') {
+                info.innerHTML = '🎥 <strong>Video Call:</strong> KES 300 - Pay <strong>after</strong> the call';
+                btn.textContent = '📅 Book Now (Pay Later)';
+                btn.className = 'btn btn-primary w-100';
+            } else {
+                info.innerHTML = '🏥 <strong>Physical Consultation:</strong> KES 500 - Pay <strong>now</strong> to book';
+                btn.textContent = '💳 Pay KES 500 & Book';
+                btn.className = 'btn btn-warning w-100';
+            }
+        });
+
         document.getElementById('bookingForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const doctorId = document.getElementById('doctorSelect').value;
+            const consultationType = document.getElementById('consultationType').value;
             const scheduledAt = document.getElementById('appointmentDate').value;
             const notes = document.getElementById('appointmentNotes').value;
 
@@ -331,7 +427,20 @@ class PatientManager {
                 return;
             }
 
-            const result = await this.bookAppointment(doctorId, scheduledAt, notes);
+            const fee = consultationType === 'video' ? 300 : 500;
+            
+            // For physical, confirm payment
+            if (consultationType === 'physical') {
+                if (!confirm(`Pay KES ${fee} now to book physical consultation?`)) {
+                    return;
+                }
+            } else {
+                if (!confirm(`Book video consultation? You'll pay KES ${fee} after the call.`)) {
+                    return;
+                }
+            }
+
+            const result = await this.bookAppointment(doctorId, consultationType, scheduledAt, notes, fee);
             alert(result.message);
             
             if (result.success) {
@@ -345,108 +454,182 @@ class PatientManager {
         });
     }
 
-    async bookAppointment(doctorId, scheduledAt, notes) {
+    async bookAppointment(doctorId, consultationType, scheduledAt, notes, fee) {
         try {
             const userId = authManager.getUserId();
-            const jitsiRoomId = `telehealth-${Date.now()}-${userId.substring(0, 8)}`;
+            const jitsiRoomId = consultationType === 'video' ? `telehealth-${Date.now()}-${userId.substring(0, 8)}` : null;
 
-            const { error } = await supabase
+            // For physical, payment is required at booking
+            let paymentStatus = 'pending';
+            let amountPaid = fee;
+            let paymentRef = null;
+
+            if (consultationType === 'physical') {
+                // Process payment now
+                const paymentResult = await this.processPayment(fee, userId, null);
+                if (paymentResult.success) {
+                    paymentStatus = 'paid';
+                    paymentRef = paymentResult.reference;
+                } else {
+                    throw new Error('Payment failed. Please try again.');
+                }
+            }
+
+            // Insert appointment
+            const { data, error } = await supabase
                 .from('appointments')
                 .insert([{
                     patient_id: userId,
                     doctor_id: doctorId,
+                    consultation_type: consultationType,
                     scheduled_at: new Date(scheduledAt).toISOString(),
                     status: 'scheduled',
+                    payment_status: paymentStatus,
+                    amount_paid: amountPaid,
+                    payment_reference: paymentRef,
                     jitsi_room_id: jitsiRoomId,
-                    notes: notes
-                }]);
+                    notes: notes,
+                    created_at: new Date().toISOString()
+                }])
+                .select();
 
             if (error) throw error;
 
-            await authManager.logActivity(userId, 'BOOK_APPOINTMENT', `Booked appointment with doctor ${doctorId}`);
+            await authManager.logActivity(userId, 'BOOK_APPOINTMENT', 
+                `Booked ${consultationType} appointment with doctor ${doctorId} - KES ${fee}`);
 
-            return { success: true, message: '✅ Appointment booked successfully!' };
+            const paymentMsg = consultationType === 'video' 
+                ? `\nPayment: KES ${fee} (pay after call)` 
+                : `\nPayment: KES ${fee} (paid)`;
+
+            return { 
+                success: true, 
+                message: `✅ Appointment booked successfully!${paymentMsg}` 
+            };
         } catch (error) {
             console.error('Booking error:', error);
             return { success: false, message: error.message || 'Failed to book appointment.' };
         }
     }
 
-    async cancelAppointment(appointmentId) {
-        if (!confirm('Are you sure you want to cancel this appointment?')) return;
+    // =============================================
+    // PAY FOR PHYSICAL BOOKING
+    // =============================================
+    async payPhysicalBooking(appointmentId, amount) {
+        if (!confirm(`Pay KES ${amount} to confirm your physical consultation booking?`)) return;
 
         try {
-            const { error } = await supabase
-                .from('appointments')
-                .update({ status: 'cancelled' })
-                .eq('id', appointmentId);
+            const userId = authManager.getUserId();
+            
+            const paymentResult = await this.processPayment(amount, userId, appointmentId);
+            
+            if (paymentResult.success) {
+                const { error } = await supabase
+                    .from('appointments')
+                    .update({ 
+                        payment_status: 'paid',
+                        payment_date: new Date().toISOString(),
+                        payment_reference: paymentResult.reference
+                    })
+                    .eq('id', appointmentId);
 
-            if (error) throw error;
+                if (error) throw error;
 
-            await authManager.logActivity(authManager.getUserId(), 'CANCEL_APPOINTMENT', `Cancelled appointment ${appointmentId}`);
-
-            alert('✅ Appointment cancelled successfully!');
-            this.loadView('appointments');
+                alert(`✅ Payment successful!\nReference: ${paymentResult.reference}\nAmount: KES ${amount}`);
+                this.loadView('appointments');
+            }
         } catch (error) {
-            console.error('Cancellation error:', error);
-            alert('Failed to cancel appointment.');
+            console.error('Payment error:', error);
+            alert('Payment failed: ' + error.message);
         }
     }
 
     // =============================================
-    // VIDEO CALL - UPDATED FOR MOBILE
+    // PAY FOR VIDEO CALL (After Doctor Ends Call)
+    // =============================================
+    async payForAppointment(appointmentId, amount) {
+        if (!confirm(`Pay KES ${amount} for this completed video consultation?`)) return;
+
+        try {
+            const userId = authManager.getUserId();
+            
+            const paymentResult = await this.processPayment(amount, userId, appointmentId);
+            
+            if (paymentResult.success) {
+                const { error } = await supabase
+                    .from('appointments')
+                    .update({ 
+                        payment_status: 'paid',
+                        payment_date: new Date().toISOString(),
+                        payment_reference: paymentResult.reference
+                    })
+                    .eq('id', appointmentId);
+
+                if (error) throw error;
+
+                alert(`✅ Payment successful!\nReference: ${paymentResult.reference}\nAmount: KES ${amount}`);
+                this.loadView('appointments');
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            alert('Payment failed: ' + error.message);
+        }
+    }
+
+    async processPayment(amount, userId, appointmentId) {
+        // Simulated payment processor
+        console.log(`💰 Processing payment: KES ${amount} for user ${userId}`);
+        
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const reference = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                resolve({
+                    success: true,
+                    reference: reference,
+                    message: 'Payment processed successfully'
+                });
+            }, 1500);
+        });
+    }
+
+    // =============================================
+    // VIDEO CALL - Free to join
     // =============================================
     joinVideoCall(appointmentId, roomId, doctorName) {
         console.log('📞 Patient joinVideoCall called:', { appointmentId, roomId, doctorName });
         
-        // Check if roomId exists
         if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
-            alert('❌ No video room found for this appointment. Please contact your doctor.');
+            alert('❌ No video room found. Please contact your doctor.');
             return;
         }
         
         // Check if videoManager exists
-        if (typeof videoManager === 'undefined' || !videoManager) {
+        let vm = window.videoManager || videoManager || null;
+        
+        if (!vm) {
             console.error('❌ VideoManager not found!');
-            alert('❌ Video service not available. Please refresh the page and try again.');
+            alert('❌ Video service not available. Please refresh and try again.');
             return;
         }
         
-        // Get patient's name
         const profile = authManager?.getUserProfile();
         const displayName = profile?.full_name || 'Patient';
         
-        console.log('🎥 Joining video call:', { roomId, displayName, doctorName });
-        
-        // Show confirmation (mobile friendly)
-        if (doctorName) {
-            if (!confirm(`Join video call with Dr. ${doctorName}?`)) {
-                return;
-            }
+        if (doctorName && !confirm(`Join video call with Dr. ${doctorName}?`)) {
+            return;
         }
         
-        // For mobile: open in new window if needed
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (isMobile) {
-            console.log('📱 Mobile device detected');
-            // Jitsi works on mobile, just proceed
-        }
-        
-        // Join the room
         try {
-            // Make sure videoManager is ready
-            if (typeof videoManager.joinRoom === 'function') {
-                videoManager.joinRoom(roomId, displayName);
-            } else {
-                console.error('❌ videoManager.joinRoom is not a function');
-                alert('Video service not ready. Please try again.');
-            }
+            vm.joinRoom(roomId, displayName);
         } catch (error) {
             console.error('❌ Error joining video call:', error);
             alert('Failed to join video call: ' + error.message);
         }
     }
 
+    // =============================================
+    // OTHER METHODS
+    // =============================================
     async loadMedicalRecordsContent(container) {
         const userId = authManager.getUserId();
         
@@ -580,6 +763,27 @@ class PatientManager {
             window.chatManager.showChatInterface(appointmentId, doctorId);
         } else {
             alert('💬 Chat feature coming soon!');
+        }
+    }
+
+    async cancelAppointment(appointmentId) {
+        if (!confirm('Are you sure you want to cancel this appointment?')) return;
+
+        try {
+            const { error } = await supabase
+                .from('appointments')
+                .update({ status: 'cancelled' })
+                .eq('id', appointmentId);
+
+            if (error) throw error;
+
+            await authManager.logActivity(authManager.getUserId(), 'CANCEL_APPOINTMENT', `Cancelled appointment ${appointmentId}`);
+
+            alert('✅ Appointment cancelled successfully!');
+            this.loadView('appointments');
+        } catch (error) {
+            console.error('Cancellation error:', error);
+            alert('Failed to cancel appointment.');
         }
     }
 }
