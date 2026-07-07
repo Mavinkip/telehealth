@@ -1,8 +1,6 @@
 /*
- * File: doctor.js
- * Purpose: Handle doctor-specific functionality (dashboard, appointments, patient records, prescriptions)
- * Dependencies: supabase-js (from config.js), auth.js
- * Fits in: Doctor module
+ * File: doctor.js - Updated with proper video call support
+ * Purpose: Handle doctor-specific functionality
  */
 
 class DoctorManager {
@@ -14,10 +12,15 @@ class DoctorManager {
         const app = document.getElementById('app');
         const profile = authManager.getUserProfile();
         
+        if (!profile) {
+            authManager.showLoginPage();
+            return;
+        }
+
         app.innerHTML = `
-            <nav class="navbar navbar-expand-lg navbar-light">
+            <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
                 <div class="container">
-                    <a class="navbar-brand" href="#">Telehealth System</a>
+                    <a class="navbar-brand" href="#">🏥 Telehealth System</a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                         <span class="navbar-toggler-icon"></span>
                     </button>
@@ -36,7 +39,7 @@ class DoctorManager {
                                 <a class="nav-link" href="#" data-view="profile">Profile</a>
                             </li>
                         </ul>
-                        <span class="navbar-text me-3">Dr. ${profile.full_name}</span>
+                        <span class="navbar-text me-3">👨‍⚕️ Dr. ${profile.full_name}</span>
                         <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Logout</button>
                     </div>
                 </div>
@@ -46,7 +49,6 @@ class DoctorManager {
             </div>
         `;
 
-        // Attach event listeners
         document.querySelectorAll('[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -67,6 +69,7 @@ class DoctorManager {
 
     async loadView(view) {
         const content = document.getElementById('doctorContent');
+        if (!content) return;
         
         switch(view) {
             case 'dashboard':
@@ -87,7 +90,6 @@ class DoctorManager {
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
         
-        // Get today's appointments
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -105,13 +107,11 @@ class DoctorManager {
             .lt('scheduled_at', tomorrow.toISOString())
             .order('scheduled_at', { ascending: true });
 
-        // Get total patient count
         const { count: patientCount } = await supabase
             .from('appointments')
             .select('*', { count: 'exact', head: true })
             .eq('doctor_id', userId);
 
-        // Get completed appointments this month
         const thisMonth = new Date();
         thisMonth.setDate(1);
         const { count: completedCount } = await supabase
@@ -165,14 +165,14 @@ class DoctorManager {
                                             <div>
                                                 <h6>${apt.patient.full_name}</h6>
                                                 <p class="mb-1"><small>${new Date(apt.scheduled_at).toLocaleTimeString()}</small></p>
-                                                <p class="mb-0"><small>${apt.patient.email} | ${apt.patient.phone}</small></p>
+                                                <p class="mb-0"><small>${apt.patient.email} | ${apt.patient.phone || 'No phone'}</small></p>
                                             </div>
                                             <div>
-                                                <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}')">
-                                                    Start Call
+                                                <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.patient.full_name}')">
+                                                    🎥 Start Call
                                                 </button>
                                                 <button class="btn btn-sm btn-secondary" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${apt.patient.full_name}')">
-                                                    Consult
+                                                    📋 Consult
                                                 </button>
                                             </div>
                                         </div>
@@ -210,35 +210,37 @@ class DoctorManager {
                     <div class="card">
                         <div class="card-body">
                             ${appointments && appointments.length > 0
-                                ? `<table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Patient</th>
-                                            <th>Contact</th>
-                                            <th>Date & Time</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${appointments.map(apt => `
+                                ? `<div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
                                             <tr>
-                                                <td>${apt.patient.full_name}</td>
-                                                <td>${apt.patient.email}<br><small>${apt.patient.phone}</small></td>
-                                                <td>${new Date(apt.scheduled_at).toLocaleString()}</td>
-                                                <td><span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">${apt.status}</span></td>
-                                                <td>
-                                                    ${apt.status === 'scheduled' ? `
-                                                        <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}')">Start Call</button>
-                                                        <button class="btn btn-sm btn-secondary" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${apt.patient.full_name}')">Consult</button>
-                                                    ` : apt.status === 'completed' ? `
-                                                        <button class="btn btn-sm btn-info" onclick="doctorManager.viewConsultation('${apt.id}')">View Notes</button>
-                                                    ` : '-'}
-                                                </td>
+                                                <th>Patient</th>
+                                                <th>Contact</th>
+                                                <th>Date & Time</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
                                             </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>`
+                                        </thead>
+                                        <tbody>
+                                            ${appointments.map(apt => `
+                                                <tr>
+                                                    <td>${apt.patient.full_name}</td>
+                                                    <td>${apt.patient.email}<br><small>${apt.patient.phone || 'No phone'}</small></td>
+                                                    <td>${new Date(apt.scheduled_at).toLocaleString()}</td>
+                                                    <td><span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">${apt.status}</span></td>
+                                                    <td>
+                                                        ${apt.status === 'scheduled' ? `
+                                                            <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.patient.full_name}')">🎥 Call</button>
+                                                            <button class="btn btn-sm btn-secondary" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${apt.patient.full_name}')">📋 Consult</button>
+                                                        ` : apt.status === 'completed' ? `
+                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.viewConsultation('${apt.id}')">📄 View</button>
+                                                        ` : '-'}
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>`
                                 : '<p class="text-muted">No appointments found</p>'
                             }
                         </div>
@@ -259,7 +261,6 @@ class DoctorManager {
             `)
             .eq('doctor_id', userId);
 
-        // Get unique patients
         const uniquePatients = patients ? [...new Map(patients.map(p => [p.patient_id, p.patient])).values()] : [];
 
         container.innerHTML = `
@@ -273,35 +274,37 @@ class DoctorManager {
                     <div class="card">
                         <div class="card-body">
                             ${uniquePatients && uniquePatients.length > 0
-                                ? `<table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Phone</th>
-                                            <th>Member Since</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${uniquePatients.map(patient => `
+                                ? `<div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
                                             <tr>
-                                                <td>${patient.full_name}</td>
-                                                <td>${patient.email}</td>
-                                                <td>${patient.phone || '-'}</td>
-                                                <td>${new Date(patient.created_at).toLocaleDateString()}</td>
-                                                <td>
-                                                    <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name}')">
-                                                        View History
-                                                    </button>
-                                                    <button class="btn btn-sm btn-secondary" onclick="doctorManager.openChatWithPatient('${patient.id}')">
-                                                        Message
-                                                    </button>
-                                                </td>
+                                                <th>Name</th>
+                                                <th>Email</th>
+                                                <th>Phone</th>
+                                                <th>Member Since</th>
+                                                <th>Actions</th>
                                             </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>`
+                                        </thead>
+                                        <tbody>
+                                            ${uniquePatients.map(patient => `
+                                                <tr>
+                                                    <td>${patient.full_name}</td>
+                                                    <td>${patient.email}</td>
+                                                    <td>${patient.phone || '-'}</td>
+                                                    <td>${new Date(patient.created_at).toLocaleDateString()}</td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name}')">
+                                                            📄 History
+                                                        </button>
+                                                        <button class="btn btn-sm btn-secondary" onclick="doctorManager.openChatWithPatient('${patient.id}')">
+                                                            💬 Message
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>`
                                 : '<p class="text-muted">No patients found</p>'
                             }
                         </div>
@@ -335,7 +338,7 @@ class DoctorManager {
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Specialty</label>
-                                    <input type="text" class="form-control" id="specialty" value="${profile.specialty}" disabled>
+                                    <input type="text" class="form-control" id="specialty" value="${profile.specialty || 'General Practice'}" disabled>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Phone</label>
@@ -382,13 +385,57 @@ class DoctorManager {
         }
     }
 
+    // =============================================
+    // VIDEO CALL - UPDATED
+    // =============================================
+    joinVideoCall(appointmentId, roomId, patientName) {
+        console.log('📞 Doctor joinVideoCall called:', { appointmentId, roomId, patientName });
+        
+        // Check if roomId exists
+        if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
+            alert('❌ No video room found for this appointment. Please book a new appointment.');
+            return;
+        }
+        
+        // Check if videoManager exists
+        if (typeof videoManager === 'undefined' || !videoManager) {
+            console.error('❌ VideoManager not found!');
+            alert('❌ Video service not available. Please refresh the page and try again.');
+            return;
+        }
+        
+        // Get doctor's name
+        const profile = authManager?.getUserProfile();
+        const displayName = `Dr. ${profile?.full_name || 'Doctor'}`;
+        
+        console.log('🎥 Starting video call with:', { roomId, displayName, patientName });
+        
+        // Show confirmation
+        if (patientName) {
+            if (!confirm(`Start video call with ${patientName}?`)) {
+                return;
+            }
+        }
+        
+        // Join the room
+        try {
+            videoManager.joinRoom(roomId, displayName);
+        } catch (error) {
+            console.error('❌ Error joining video call:', error);
+            alert('Failed to start video call: ' + error.message);
+        }
+    }
+
+    // =============================================
+    // CONSULTATION MODAL
+    // =============================================
     openConsultationModal(appointmentId, patientId, patientName) {
         const modalHtml = `
             <div class="modal fade" id="consultationModal" tabindex="-1">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">Consultation - ${patientName}</h5>
+                            <h5 class="modal-title">📋 Consultation - ${patientName}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
@@ -415,15 +462,15 @@ class DoctorManager {
                                             </div>
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="doctorManager.addPrescriptionField()">Add Medication</button>
+                                    <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="doctorManager.addPrescriptionField()">+ Add Medication</button>
                                 </div>
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" type="checkbox" id="completeAppointment">
                                     <label class="form-check-label" for="completeAppointment">
-                                        Mark appointment as completed
+                                        ✅ Mark appointment as completed
                                     </label>
                                 </div>
-                                <button type="submit" class="btn btn-primary">Save Consultation</button>
+                                <button type="submit" class="btn btn-primary">💾 Save Consultation</button>
                             </form>
                         </div>
                     </div>
@@ -440,7 +487,6 @@ class DoctorManager {
             const soapNotes = document.getElementById('soapNotes').value;
             const completeAppointment = document.getElementById('completeAppointment').checked;
 
-            // Collect prescriptions
             const prescriptions = [];
             document.querySelectorAll('.prescription-row').forEach(row => {
                 const medication = row.querySelector('[name="medication"]').value;
@@ -489,8 +535,7 @@ class DoctorManager {
         try {
             const doctorId = authManager.getUserId();
 
-            // Create medical record
-            const { data: recordData, error: recordError } = await supabase
+            const { error: recordError } = await supabase
                 .from('medical_records')
                 .insert([{
                     patient_id: patientId,
@@ -498,12 +543,10 @@ class DoctorManager {
                     appointment_id: appointmentId,
                     soap_notes: soapNotes,
                     created_at: new Date().toISOString()
-                }])
-                .select();
+                }]);
 
             if (recordError) throw recordError;
 
-            // Create prescriptions
             if (prescriptions.length > 0) {
                 const prescriptionData = prescriptions.map(rx => ({
                     patient_id: patientId,
@@ -522,7 +565,6 @@ class DoctorManager {
                 if (rxError) throw rxError;
             }
 
-            // Complete appointment if checked
             if (completeAppointment) {
                 const { error: aptError } = await supabase
                     .from('appointments')
@@ -534,7 +576,7 @@ class DoctorManager {
 
             await authManager.logActivity(doctorId, 'SAVE_CONSULTATION', `Saved consultation for appointment ${appointmentId}`);
 
-            return { success: true, message: 'Consultation saved successfully!' };
+            return { success: true, message: '✅ Consultation saved successfully!' };
         } catch (error) {
             console.error('Consultation save error:', error);
             return { success: false, message: error.message || 'Failed to save consultation.' };
@@ -558,7 +600,7 @@ class DoctorManager {
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">Medical History - ${patientName}</h5>
+                            <h5 class="modal-title">📄 Medical History - ${patientName}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
@@ -571,10 +613,10 @@ class DoctorManager {
                                         <div class="card-body">
                                             <p>${record.soap_notes || 'No notes available'}</p>
                                             ${record.prescriptions && record.prescriptions.length > 0 ? `
-                                                <h6>Prescriptions:</h6>
+                                                <h6>💊 Prescriptions:</h6>
                                                 <ul>
                                                     ${record.prescriptions.map(rx => `
-                                                        <li>${rx.medication} - ${rx.dosage} (${rx.instructions})</li>
+                                                        <li><strong>${rx.medication}</strong> - ${rx.dosage} (${rx.instructions})</li>
                                                     `).join('')}
                                                 </ul>
                                             ` : ''}
@@ -598,18 +640,16 @@ class DoctorManager {
         });
     }
 
-    joinVideoCall(appointmentId, roomId) {
-        if (window.videoManager) {
-            window.videoManager.joinRoom(roomId, authManager.getUserProfile().full_name);
-        }
-    }
-
     openChatWithPatient(patientId) {
         if (window.chatManager) {
             window.chatManager.showChatInterface(null, patientId);
+        } else {
+            alert('💬 Chat feature coming soon!');
         }
     }
 }
 
 // Initialize doctor manager
 const doctorManager = new DoctorManager();
+window.doctorManager = doctorManager;
+console.log('✅ DoctorManager initialized');
