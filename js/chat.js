@@ -1,5 +1,5 @@
 /*
- * File: chat.js - Complete real-time chat functionality
+ * File: chat.js - Complete real-time chat with no duplication
  * Purpose: Handle real-time chat between patients and doctors
  */
 
@@ -11,6 +11,7 @@ class ChatManager {
         this.subscription = null;
         this.messages = [];
         this.isOpen = false;
+        this.messageIds = new Set(); // Track message IDs to prevent duplicates
     }
 
     // =============================================
@@ -22,6 +23,7 @@ class ChatManager {
         this.currentAppointmentId = appointmentId;
         this.currentChatPartnerId = partnerId;
         this.isOpen = true;
+        this.messageIds = new Set(); // Reset message IDs
 
         const app = document.getElementById('app');
         const profile = authManager.getUserProfile();
@@ -30,6 +32,9 @@ class ChatManager {
             authManager.showLoginPage();
             return;
         }
+
+        const isDoctor = profile.role === 'doctor';
+        const isPatient = profile.role === 'patient';
 
         app.innerHTML = `
             <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
@@ -44,7 +49,7 @@ class ChatManager {
                                 <a class="nav-link" href="#" id="backToDashboard">⬅️ Back</a>
                             </li>
                         </ul>
-                        <span class="navbar-text me-3">👤 ${profile.full_name}</span>
+                        <span class="navbar-text me-3">👤 ${profile.full_name} (${profile.role})</span>
                         <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Logout</button>
                     </div>
                 </div>
@@ -80,7 +85,7 @@ class ChatManager {
                             </div>
                             <div class="card-body p-0">
                                 <!-- Messages -->
-                                <div id="chatContainer" class="chat-container p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
+                                <div id="chatContainer" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
                                     <div class="text-center text-muted py-5">
                                         <p>👈 Select a conversation to start chatting</p>
                                     </div>
@@ -150,13 +155,13 @@ class ChatManager {
         try {
             let query;
             if (role === 'patient') {
-                // Patient sees doctors they have appointments with
                 query = supabase
                     .from('appointments')
                     .select(`
                         id,
                         status,
                         scheduled_at,
+                        consultation_type,
                         doctor:profiles!appointments_doctor_id_fkey (
                             id,
                             full_name,
@@ -168,13 +173,13 @@ class ChatManager {
                     .in('status', ['scheduled', 'completed'])
                     .order('scheduled_at', { ascending: false });
             } else if (role === 'doctor') {
-                // Doctor sees patients they have appointments with
                 query = supabase
                     .from('appointments')
                     .select(`
                         id,
                         status,
                         scheduled_at,
+                        consultation_type,
                         patient:profiles!appointments_patient_id_fkey (
                             id,
                             full_name,
@@ -206,14 +211,14 @@ class ChatManager {
                     const partner = role === 'patient' ? conv.doctor : conv.patient;
                     if (partner && !seenPartners.has(partner.id)) {
                         seenPartners.add(partner.id);
-                        // Get last message for this conversation
                         uniqueConversations.push({
                             appointmentId: conv.id,
                             partner: partner,
                             lastMessage: null,
                             lastMessageTime: null,
                             unreadCount: 0,
-                            status: conv.status
+                            status: conv.status,
+                            consultationType: conv.consultation_type || 'video'
                         });
                     }
                 });
@@ -233,14 +238,16 @@ class ChatManager {
                         conv.lastMessageSender = lastMsg[0].sender_id;
                         
                         // Count unread messages
-                        const { count } = await supabase
+                        const { count, error: countError } = await supabase
                             .from('messages')
                             .select('*', { count: 'exact', head: true })
                             .eq('appointment_id', conv.appointmentId)
                             .eq('receiver_id', userId)
                             .is('read_at', null);
 
-                        conv.unreadCount = count || 0;
+                        if (!countError) {
+                            conv.unreadCount = count || 0;
+                        }
                     }
                 }
 
@@ -258,7 +265,7 @@ class ChatManager {
                         <p>💬 No conversations yet</p>
                         <small>Book an appointment to start chatting with your doctor.</small>
                         <br><br>
-                        <button class="btn btn-primary btn-sm" onclick="patientManager.loadView('appointments')">
+                        <button class="btn btn-primary btn-sm" onclick="patientManager?.loadView('appointments')">
                             📅 Book Appointment
                         </button>
                     </div>
@@ -278,16 +285,16 @@ class ChatManager {
                          style="cursor: pointer; ${isActive ? 'background-color: #e3f2fd; border-left: 3px solid #1976d2;' : ''}"
                          onclick="chatManager.selectConversation('${conv.appointmentId}', '${partner.id}', '${partner.full_name}', event)">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div>
+                            <div style="flex: 1;">
                                 <h6 class="mb-0">${partner.full_name}</h6>
                                 <small class="text-muted">${partner.specialty || 'Patient'}</small>
                                 <div class="text-truncate" style="max-width: 150px;">
-                                    <small class="text-muted">${lastMsg.substring(0, 40)}${lastMsg.length > 40 ? '...' : ''}</small>
+                                    <small class="text-muted">${this.escapeHtml(lastMsg.substring(0, 40))}${lastMsg.length > 40 ? '...' : ''}</small>
                                 </div>
                             </div>
-                            <div class="text-end">
+                            <div class="text-end" style="min-width: 50px;">
                                 ${conv.unreadCount > 0 ? `<span class="badge bg-danger rounded-pill">${conv.unreadCount}</span>` : ''}
-                                ${timeAgo ? `<br><small class="text-muted">${timeAgo}</small>` : ''}
+                                ${timeAgo ? `<br><small class="text-muted" style="font-size: 0.65rem;">${timeAgo}</small>` : ''}
                             </div>
                         </div>
                     </div>
@@ -311,6 +318,9 @@ class ChatManager {
     // =============================================
     async selectConversation(appointmentId, partnerId, partnerName, event = null) {
         console.log('💬 Selecting conversation:', { appointmentId, partnerId, partnerName });
+        
+        // Reset message IDs for new conversation
+        this.messageIds = new Set();
         
         this.currentAppointmentId = appointmentId;
         this.currentChatPartnerId = partnerId;
@@ -351,7 +361,6 @@ class ChatManager {
     async loadMessages() {
         if (!this.currentAppointmentId) return;
 
-        const userId = authManager.getUserId();
         const chatContainer = document.getElementById('chatContainer');
 
         try {
@@ -363,7 +372,15 @@ class ChatManager {
 
             if (error) throw error;
 
+            // Clear message IDs and add new ones
+            this.messageIds = new Set();
             this.messages = data || [];
+            
+            // Track message IDs to prevent duplicates
+            this.messages.forEach(msg => {
+                this.messageIds.add(msg.id);
+            });
+
             this.renderMessages();
 
             // Scroll to bottom
@@ -402,7 +419,6 @@ class ChatManager {
         chatContainer.innerHTML = this.messages.map(msg => {
             const isSent = msg.sender_id === userId;
             const time = new Date(msg.sent_at).toLocaleTimeString();
-            const date = new Date(msg.sent_at).toLocaleDateString();
             
             return `
                 <div class="message-wrapper mb-2 ${isSent ? 'text-end' : 'text-start'}">
@@ -460,10 +476,15 @@ class ChatManager {
             // Clear input
             input.value = '';
 
-            // Add to local messages
+            // Add to local messages (prevent duplicate)
             if (data && data.length > 0) {
-                this.messages.push(data[0]);
-                this.renderMessages();
+                const newMsg = data[0];
+                // Check if message already exists
+                if (!this.messageIds.has(newMsg.id)) {
+                    this.messageIds.add(newMsg.id);
+                    this.messages.push(newMsg);
+                    this.renderMessages();
+                }
             }
 
             // Log activity
@@ -514,11 +535,20 @@ class ChatManager {
     }
 
     // =============================================
-    // HANDLE NEW MESSAGE (Realtime)
+    // HANDLE NEW MESSAGE (Realtime) - NO DUPLICATES
     // =============================================
     handleNewMessage(message) {
+        // Check if message already exists (prevent duplicates)
+        if (this.messageIds.has(message.id)) {
+            console.log('⚠️ Duplicate message detected, ignoring:', message.id);
+            return;
+        }
+
         const userId = authManager.getUserId();
         const isSent = message.sender_id === userId;
+        
+        // Add to message IDs set
+        this.messageIds.add(message.id);
         
         // Add to messages array
         this.messages.push(message);
@@ -573,7 +603,6 @@ class ChatManager {
         // Find the conversation in the list
         const items = document.querySelectorAll('.conversation-item');
         let targetItem = null;
-        let targetData = null;
 
         items.forEach(item => {
             const onclick = item.getAttribute('onclick');
@@ -588,7 +617,7 @@ class ChatManager {
             if (textTruncate) {
                 const small = textTruncate.querySelector('small');
                 if (small) {
-                    small.textContent = message.content.substring(0, 40) + (message.content.length > 40 ? '...' : '');
+                    small.textContent = this.escapeHtml(message.content.substring(0, 40)) + (message.content.length > 40 ? '...' : '');
                 }
             }
 
@@ -650,6 +679,7 @@ class ChatManager {
         this.currentChatPartnerId = null;
         this.currentChatPartnerName = null;
         this.messages = [];
+        this.messageIds = new Set();
         this.isOpen = false;
     }
 }
