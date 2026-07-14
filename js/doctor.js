@@ -1,5 +1,5 @@
 /*
- * File: doctor.js - Complete with Prescription Reminders
+ * File: doctor.js - Complete with Prescriptions & Reminders
  */
 
 class DoctorManager {
@@ -364,7 +364,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // WRITE PRESCRIPTION WITH REMINDERS
+    // WRITE PRESCRIPTION
     // =============================================
     writePrescription(patientId, patientName) {
         console.log('💊 Writing prescription for:', patientId, patientName);
@@ -404,7 +404,7 @@ class DoctorManager {
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Duration (Days)</label>
-                                        <input type="number" class="form-control" id="duration" placeholder="e.g., 7" min="1" max="90" required>
+                                        <input type="number" class="form-control" id="durationDays" placeholder="e.g., 7" min="1" max="90" required>
                                     </div>
                                 </div>
                                 <div class="mb-3">
@@ -455,30 +455,40 @@ class DoctorManager {
             const medication = document.getElementById('medicationName').value;
             const dosage = document.getElementById('dosage').value;
             const timesPerDay = document.getElementById('timesPerDay').value;
-            const duration = parseInt(document.getElementById('duration').value) || 7;
+            const durationDays = parseInt(document.getElementById('durationDays').value) || 7;
             const whenToTake = document.getElementById('whenToTake').value;
             const instructions = document.getElementById('instructions').value;
             const sendReminders = document.getElementById('sendReminders').checked;
             const sendRefillReminder = document.getElementById('sendRefillReminder').checked;
 
-            const result = await this.savePrescription(patientId, {
+            if (!medication || !dosage || !durationDays) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            const prescriptionData = {
                 medication,
                 dosage,
-                timesPerDay,
-                duration,
-                whenToTake,
-                instructions,
-                sendReminders,
-                sendRefillReminder
-            });
+                frequency: `${timesPerDay} times per day`,
+                duration: `${durationDays} days`,
+                duration_days: durationDays,
+                when_to_take: whenToTake,
+                times_per_day: timesPerDay,
+                instructions: instructions || whenToTake,
+                send_reminders: sendReminders,
+                send_refill_reminder: sendRefillReminder,
+                notes: ''
+            };
+
+            const result = await this.savePrescription(patientId, prescriptionData);
             
             alert(result.message);
             if (result.success) {
                 modal.hide();
                 if (sendReminders) {
-                    await this.sendMedicationReminders(patientId, patientName, medication, dosage, timesPerDay, duration, whenToTake);
+                    await this.sendMedicationReminders(patientId, patientName, medication, dosage, timesPerDay, durationDays, whenToTake);
                 }
-                await this.notifyPatientPrescription(patientId, patientName, medication, dosage, timesPerDay, duration);
+                await this.notifyPatientPrescription(patientId, patientName, medication, dosage, timesPerDay, durationDays);
                 this.loadView('patients');
             }
         });
@@ -492,33 +502,41 @@ class DoctorManager {
         try {
             const doctorId = authManager.getUserId();
             
+            const prescription = {
+                patient_id: patientId,
+                doctor_id: doctorId,
+                medication: prescriptionData.medication,
+                dosage: prescriptionData.dosage,
+                frequency: prescriptionData.frequency || '',
+                duration: prescriptionData.duration || '',
+                duration_days: prescriptionData.duration_days || null,
+                when_to_take: prescriptionData.when_to_take || '',
+                times_per_day: prescriptionData.times_per_day || '',
+                instructions: prescriptionData.instructions || '',
+                send_reminders: prescriptionData.send_reminders || false,
+                send_refill_reminder: prescriptionData.send_refill_reminder || false,
+                notes: prescriptionData.notes || '',
+                issued_at: new Date().toISOString()
+            };
+
+            console.log('💾 Saving prescription:', prescription);
+
             const { data, error } = await supabase
                 .from('prescriptions')
-                .insert([{
-                    patient_id: patientId,
-                    doctor_id: doctorId,
-                    medication: prescriptionData.medication,
-                    dosage: prescriptionData.dosage,
-                    frequency: `${prescriptionData.timesPerDay} times per day`,
-                    duration: `${prescriptionData.duration} days`,
-                    instructions: `${prescriptionData.whenToTake}. ${prescriptionData.instructions}`,
-                    when_to_take: prescriptionData.whenToTake,
-                    times_per_day: prescriptionData.timesPerDay,
-                    duration_days: prescriptionData.duration,
-                    send_reminders: prescriptionData.sendReminders,
-                    send_refill_reminder: prescriptionData.sendRefillReminder,
-                    issued_at: new Date().toISOString()
-                }])
+                .insert([prescription])
                 .select();
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Prescription save error:', error);
+                throw error;
+            }
 
             await authManager.logActivity(doctorId, 'WRITE_PRESCRIPTION', 
                 `Prescribed ${prescriptionData.medication} to patient ${patientId}`);
 
             return { success: true, message: '✅ Prescription saved with reminders!' };
         } catch (error) {
-            console.error('Prescription error:', error);
+            console.error('❌ Prescription error:', error);
             return { success: false, message: error.message || 'Failed to save prescription.' };
         }
     }
@@ -526,7 +544,7 @@ class DoctorManager {
     // =============================================
     // SEND MEDICATION REMINDERS
     // =============================================
-    async sendMedicationReminders(patientId, patientName, medication, dosage, timesPerDay, duration, whenToTake) {
+    async sendMedicationReminders(patientId, patientName, medication, dosage, timesPerDay, durationDays, whenToTake) {
         try {
             const doctorId = authManager.getUserId();
             const { data: doctorData } = await supabase
@@ -537,7 +555,6 @@ class DoctorManager {
 
             const doctorName = doctorData?.full_name || 'Doctor';
 
-            // Find appointment with this patient
             const { data: aptData } = await supabase
                 .from('appointments')
                 .select('id')
@@ -554,7 +571,6 @@ class DoctorManager {
                 return;
             }
 
-            // Calculate times for reminders
             const timesPerDayNum = parseInt(timesPerDay) || 2;
             const intervalHours = Math.floor(12 / timesPerDayNum);
             const reminderTimes = [];
@@ -565,16 +581,14 @@ class DoctorManager {
                 reminderTimes.push(timeStr);
             }
 
-            // Create a reminder schedule message
             const timesStr = reminderTimes.join(', ');
             
-            // Send initial medication instructions
             const messageContent = `💊 **Medication Reminder Schedule**\n\n` +
                 `Dr. ${doctorName} has prescribed:\n` +
                 `📋 **${medication}** - ${dosage}\n` +
                 `⏰ **Take ${timesPerDay} time(s) per day** at: ${timesStr}\n` +
                 `🍽️ **When to take:** ${whenToTake}\n` +
-                `📅 **Duration:** ${duration} days\n` +
+                `📅 **Duration:** ${durationDays} days\n` +
                 `💡 **Instructions:** ${whenToTake}. Take as directed.\n\n` +
                 `🔔 You will receive reminders when it's time to take your medication.\n` +
                 `📱 Please mark each dose as taken in your Medications section.`;
@@ -589,14 +603,13 @@ class DoctorManager {
                     sent_at: new Date().toISOString()
                 }]);
 
-            // Create medication schedule entries in the database
+            // Create medication schedule entries
             const scheduleEntries = [];
             const startDate = new Date();
             
-            for (let d = 0; d < duration; d++) {
+            for (let d = 0; d < durationDays; d++) {
                 const date = new Date(startDate);
                 date.setDate(date.getDate() + d);
-                const dateStr = date.toISOString().split('T')[0];
                 
                 for (let t = 0; t < timesPerDayNum; t++) {
                     const hour = 8 + (t * intervalHours);
@@ -626,9 +639,8 @@ class DoctorManager {
             // Schedule refill reminder if enabled
             if (true) {
                 const refillDate = new Date();
-                refillDate.setDate(refillDate.getDate() + duration - 2); // 2 days before finish
+                refillDate.setDate(refillDate.getDate() + durationDays - 2);
                 
-                // Store refill reminder
                 await supabase
                     .from('medication_schedule')
                     .insert([{
@@ -651,7 +663,7 @@ class DoctorManager {
         }
     }
 
-    async notifyPatientPrescription(patientId, patientName, medication, dosage, timesPerDay, duration) {
+    async notifyPatientPrescription(patientId, patientName, medication, dosage, timesPerDay, durationDays) {
         try {
             const doctorId = authManager.getUserId();
             const { data: doctorData } = await supabase
@@ -680,7 +692,7 @@ class DoctorManager {
                         sender_id: doctorId,
                         receiver_id: patientId,
                         appointment_id: appointmentId,
-                        content: `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${medication} - ${dosage}\n⏰ Take ${timesPerDay} time(s) per day\n📅 Duration: ${duration} days\n\n🔔 You will receive reminders when it's time to take your medication.`,
+                        content: `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${medication} - ${dosage}\n⏰ Take ${timesPerDay} time(s) per day\n📅 Duration: ${durationDays} days\n\n🔔 You will receive reminders when it's time to take your medication.`,
                         sent_at: new Date().toISOString()
                     }]);
             }
@@ -1252,7 +1264,6 @@ class DoctorManager {
             .eq('patient_id', patientId)
             .order('created_at', { ascending: false });
 
-        // Also get standalone prescriptions
         const { data: standalonePrescriptions } = await supabase
             .from('prescriptions')
             .select(`
