@@ -1,5 +1,5 @@
 /*
- * File: doctor.js - Complete with Prescriptions & Reminders
+ * File: doctor.js - Complete with Prescriptions & Reminders (FULLY FIXED)
  */
 
 class DoctorManager {
@@ -364,24 +364,30 @@ class DoctorManager {
     }
 
     // =============================================
-    // WRITE PRESCRIPTION
+    // WRITE PRESCRIPTION - FIXED
     // =============================================
     writePrescription(patientId, patientName) {
         console.log('💊 Writing prescription for:', patientId, patientName);
         
+        // Validate patientId
+        if (!patientId || patientId === 'undefined' || patientId === 'null') {
+            alert('Error: Invalid patient ID. Please try again.');
+            return;
+        }
+
         const modalHtml = `
             <div class="modal fade" id="prescriptionModal" tabindex="-1">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header bg-success text-white">
-                            <h5 class="modal-title">💊 Write Prescription - ${patientName}</h5>
+                            <h5 class="modal-title">💊 Write Prescription - ${patientName || 'Patient'}</h5>
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
                             <form id="prescriptionForm">
                                 <div class="mb-3">
                                     <label class="form-label">Patient</label>
-                                    <input type="text" class="form-control" value="${patientName}" disabled>
+                                    <input type="text" class="form-control" value="${patientName || 'Patient'}" disabled>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Medication Name</label>
@@ -395,10 +401,10 @@ class DoctorManager {
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Times Per Day</label>
                                         <select class="form-select" id="timesPerDay" required>
-                                            <option value="1">1 time per day</option>
-                                            <option value="2" selected>2 times per day</option>
-                                            <option value="3">3 times per day</option>
-                                            <option value="4">4 times per day</option>
+                                            <option value="1 time per day">1 time per day</option>
+                                            <option value="2 times per day" selected>2 times per day</option>
+                                            <option value="3 times per day">3 times per day</option>
+                                            <option value="4 times per day">4 times per day</option>
                                             <option value="As needed">As needed</option>
                                         </select>
                                     </div>
@@ -469,7 +475,7 @@ class DoctorManager {
             const prescriptionData = {
                 medication,
                 dosage,
-                frequency: `${timesPerDay} times per day`,
+                frequency: timesPerDay,
                 duration: `${durationDays} days`,
                 duration_days: durationDays,
                 when_to_take: whenToTake,
@@ -498,9 +504,17 @@ class DoctorManager {
         });
     }
 
+    // =============================================
+    // SAVE PRESCRIPTION - FIXED
+    // =============================================
     async savePrescription(patientId, prescriptionData) {
         try {
             const doctorId = authManager.getUserId();
+            
+            // Validate patientId
+            if (!patientId || patientId === 'undefined' || patientId === 'null') {
+                throw new Error('Invalid patient ID');
+            }
             
             const prescription = {
                 patient_id: patientId,
@@ -534,7 +548,7 @@ class DoctorManager {
             await authManager.logActivity(doctorId, 'WRITE_PRESCRIPTION', 
                 `Prescribed ${prescriptionData.medication} to patient ${patientId}`);
 
-            return { success: true, message: '✅ Prescription saved with reminders!' };
+            return { success: true, message: '✅ Prescription saved successfully!' };
         } catch (error) {
             console.error('❌ Prescription error:', error);
             return { success: false, message: error.message || 'Failed to save prescription.' };
@@ -542,10 +556,16 @@ class DoctorManager {
     }
 
     // =============================================
-    // SEND MEDICATION REMINDERS
+    // SEND MEDICATION REMINDERS - FIXED
     // =============================================
     async sendMedicationReminders(patientId, patientName, medication, dosage, timesPerDay, durationDays, whenToTake) {
         try {
+            // Validate patientId
+            if (!patientId || patientId === 'undefined' || patientId === 'null') {
+                console.error('Invalid patient ID for reminders');
+                return false;
+            }
+
             const doctorId = authManager.getUserId();
             const { data: doctorData } = await supabase
                 .from('profiles')
@@ -555,6 +575,7 @@ class DoctorManager {
 
             const doctorName = doctorData?.full_name || 'Doctor';
 
+            // Find an appointment with this patient
             const { data: aptData } = await supabase
                 .from('appointments')
                 .select('id')
@@ -566,12 +587,11 @@ class DoctorManager {
 
             const appointmentId = aptData && aptData.length > 0 ? aptData[0].id : null;
 
-            if (!appointmentId) {
-                console.log('No appointment found, but reminders will still be sent');
-                return;
-            }
-
-            const timesPerDayNum = parseInt(timesPerDay) || 2;
+            // Parse times per day
+            const timesPerDayNum = timesPerDay.includes('2') ? 2 : 
+                                   timesPerDay.includes('3') ? 3 : 
+                                   timesPerDay.includes('4') ? 4 : 1;
+            
             const intervalHours = Math.floor(12 / timesPerDayNum);
             const reminderTimes = [];
             
@@ -586,22 +606,36 @@ class DoctorManager {
             const messageContent = `💊 **Medication Reminder Schedule**\n\n` +
                 `Dr. ${doctorName} has prescribed:\n` +
                 `📋 **${medication}** - ${dosage}\n` +
-                `⏰ **Take ${timesPerDay} time(s) per day** at: ${timesStr}\n` +
+                `⏰ **Take ${timesPerDay}** at: ${timesStr}\n` +
                 `🍽️ **When to take:** ${whenToTake}\n` +
                 `📅 **Duration:** ${durationDays} days\n` +
                 `💡 **Instructions:** ${whenToTake}. Take as directed.\n\n` +
                 `🔔 You will receive reminders when it's time to take your medication.\n` +
                 `📱 Please mark each dose as taken in your Medications section.`;
 
-            await supabase
-                .from('messages')
-                .insert([{
-                    sender_id: doctorId,
-                    receiver_id: patientId,
-                    appointment_id: appointmentId,
-                    content: messageContent,
-                    sent_at: new Date().toISOString()
-                }]);
+            // Send message if appointment exists
+            if (appointmentId) {
+                await supabase
+                    .from('messages')
+                    .insert([{
+                        sender_id: doctorId,
+                        receiver_id: patientId,
+                        appointment_id: appointmentId,
+                        content: messageContent,
+                        sent_at: new Date().toISOString()
+                    }]);
+            } else {
+                // Create a direct message without appointment
+                await supabase
+                    .from('messages')
+                    .insert([{
+                        sender_id: doctorId,
+                        receiver_id: patientId,
+                        appointment_id: null,
+                        content: messageContent,
+                        sent_at: new Date().toISOString()
+                    }]);
+            }
 
             // Create medication schedule entries
             const scheduleEntries = [];
@@ -636,23 +670,21 @@ class DoctorManager {
                 console.error('Error creating medication schedule:', scheduleError);
             }
 
-            // Schedule refill reminder if enabled
-            if (true) {
-                const refillDate = new Date();
-                refillDate.setDate(refillDate.getDate() + durationDays - 2);
-                
-                await supabase
-                    .from('medication_schedule')
-                    .insert([{
-                        patient_id: patientId,
-                        medication: medication,
-                        dosage: dosage,
-                        scheduled_time: refillDate.toISOString(),
-                        taken: false,
-                        is_refill_reminder: true,
-                        created_at: new Date().toISOString()
-                    }]);
-            }
+            // Schedule refill reminder
+            const refillDate = new Date();
+            refillDate.setDate(refillDate.getDate() + durationDays - 2);
+            
+            await supabase
+                .from('medication_schedule')
+                .insert([{
+                    patient_id: patientId,
+                    medication: medication,
+                    dosage: dosage,
+                    scheduled_time: refillDate.toISOString(),
+                    taken: false,
+                    is_refill_reminder: true,
+                    created_at: new Date().toISOString()
+                }]);
 
             console.log('✅ Medication reminders scheduled successfully');
             return true;
@@ -665,6 +697,12 @@ class DoctorManager {
 
     async notifyPatientPrescription(patientId, patientName, medication, dosage, timesPerDay, durationDays) {
         try {
+            // Validate patientId
+            if (!patientId || patientId === 'undefined' || patientId === 'null') {
+                console.error('Invalid patient ID for notification');
+                return;
+            }
+
             const doctorId = authManager.getUserId();
             const { data: doctorData } = await supabase
                 .from('profiles')
@@ -685,6 +723,8 @@ class DoctorManager {
 
             const appointmentId = aptData && aptData.length > 0 ? aptData[0].id : null;
 
+            const messageContent = `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${medication} - ${dosage}\n⏰ Take ${timesPerDay}\n📅 Duration: ${durationDays} days\n\n🔔 You will receive reminders when it's time to take your medication.`;
+
             if (appointmentId) {
                 await supabase
                     .from('messages')
@@ -692,7 +732,17 @@ class DoctorManager {
                         sender_id: doctorId,
                         receiver_id: patientId,
                         appointment_id: appointmentId,
-                        content: `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${medication} - ${dosage}\n⏰ Take ${timesPerDay} time(s) per day\n📅 Duration: ${durationDays} days\n\n🔔 You will receive reminders when it's time to take your medication.`,
+                        content: messageContent,
+                        sent_at: new Date().toISOString()
+                    }]);
+            } else {
+                await supabase
+                    .from('messages')
+                    .insert([{
+                        sender_id: doctorId,
+                        receiver_id: patientId,
+                        appointment_id: null,
+                        content: messageContent,
                         sent_at: new Date().toISOString()
                     }]);
             }
@@ -702,22 +752,27 @@ class DoctorManager {
     }
 
     // =============================================
-    // SCHEDULE FOLLOW-UP
+    // SCHEDULE FOLLOW-UP - FIXED
     // =============================================
     scheduleFollowUp(patientId, patientName) {
+        if (!patientId || patientId === 'undefined' || patientId === 'null') {
+            alert('Error: Invalid patient ID.');
+            return;
+        }
+
         const modalHtml = `
             <div class="modal fade" id="followUpModal" tabindex="-1">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header bg-warning">
-                            <h5 class="modal-title">📅 Schedule Follow-up - ${patientName}</h5>
+                            <h5 class="modal-title">📅 Schedule Follow-up - ${patientName || 'Patient'}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
                             <form id="followUpForm">
                                 <div class="mb-3">
                                     <label class="form-label">Patient</label>
-                                    <input type="text" class="form-control" value="${patientName}" disabled>
+                                    <input type="text" class="form-control" value="${patientName || 'Patient'}" disabled>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Follow-up Date & Time</label>
@@ -782,6 +837,10 @@ class DoctorManager {
 
     async bookFollowUp(patientId, scheduledAt, reason, notes) {
         try {
+            if (!patientId || patientId === 'undefined' || patientId === 'null') {
+                throw new Error('Invalid patient ID');
+            }
+
             const doctorId = authManager.getUserId();
             
             const { data, error } = await supabase
@@ -814,6 +873,11 @@ class DoctorManager {
 
     async notifyPatientFollowUp(patientId, patientName, scheduledAt) {
         try {
+            if (!patientId || patientId === 'undefined' || patientId === 'null') {
+                console.error('Invalid patient ID for follow-up notification');
+                return;
+            }
+
             const doctorId = authManager.getUserId();
             const { data: doctorData } = await supabase
                 .from('profiles')
@@ -835,6 +899,8 @@ class DoctorManager {
 
             const appointmentId = aptData && aptData.length > 0 ? aptData[0].id : null;
 
+            const messageContent = `📅 **Follow-up Scheduled**\n\nDr. ${doctorName} has scheduled a follow-up for:\n📆 ${dateFormatted}\n\nPlease check your appointments for details.`;
+
             if (appointmentId) {
                 await supabase
                     .from('messages')
@@ -842,7 +908,17 @@ class DoctorManager {
                         sender_id: doctorId,
                         receiver_id: patientId,
                         appointment_id: appointmentId,
-                        content: `📅 **Follow-up Scheduled**\n\nDr. ${doctorName} has scheduled a follow-up for:\n📆 ${dateFormatted}\n\nPlease check your appointments for details.`,
+                        content: messageContent,
+                        sent_at: new Date().toISOString()
+                    }]);
+            } else {
+                await supabase
+                    .from('messages')
+                    .insert([{
+                        sender_id: doctorId,
+                        receiver_id: patientId,
+                        appointment_id: null,
+                        content: messageContent,
                         sent_at: new Date().toISOString()
                     }]);
             }
@@ -852,151 +928,8 @@ class DoctorManager {
     }
 
     // =============================================
-    // OTHER METHODS
+    // CONSULTATION MODAL
     // =============================================
-    async loadProfileContent(container) {
-        const profile = authManager.getUserProfile();
-        
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>My Profile</h2>
-                </div>
-            </div>
-            <div class="row mt-4">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-body">
-                            <form id="profileForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" id="fullName" value="${profile.full_name}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="email" value="${profile.email}" disabled>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Specialty</label>
-                                    <input type="text" class="form-control" id="specialty" value="${profile.specialty || 'General Practice'}" disabled>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" id="phone" value="${profile.phone || ''}">
-                                </div>
-                                <button type="submit" class="btn btn-primary">Update Profile</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('profileForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fullName = document.getElementById('fullName').value;
-            const phone = document.getElementById('phone').value;
-
-            const result = await this.updateProfile(fullName, phone);
-            alert(result.message);
-        });
-    }
-
-    async updateProfile(fullName, phone) {
-        try {
-            const userId = authManager.getUserId();
-            
-            const { error } = await supabase
-                .from('profiles')
-                .update({ full_name: fullName, phone: phone })
-                .eq('id', userId);
-
-            if (error) throw error;
-
-            authManager.userProfile.full_name = fullName;
-            authManager.userProfile.phone = phone;
-
-            await authManager.logActivity(userId, 'UPDATE_PROFILE', 'Updated profile information');
-
-            return { success: true, message: '✅ Profile updated successfully!' };
-        } catch (error) {
-            console.error('Profile update error:', error);
-            return { success: false, message: error.message || 'Failed to update profile.' };
-        }
-    }
-
-    joinVideoCall(appointmentId, roomId, patientName) {
-        console.log('📞 Doctor joinVideoCall called:', { appointmentId, roomId, patientName });
-        
-        if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
-            alert('❌ No video room found for this appointment.');
-            return;
-        }
-        
-        let vm = window.videoManager || videoManager || null;
-        
-        if (!vm) {
-            alert('❌ Video service not available. Please refresh.');
-            return;
-        }
-        
-        const profile = authManager?.getUserProfile();
-        const displayName = `Dr. ${profile?.full_name || 'Doctor'}`;
-        
-        if (patientName && !confirm(`Start video call with ${patientName}?`)) {
-            return;
-        }
-        
-        try {
-            vm.joinRoom(roomId, displayName);
-        } catch (error) {
-            console.error('❌ Error joining video call:', error);
-            alert('Failed to start video call: ' + error.message);
-        }
-    }
-
-    openChat() {
-        if (window.chatManager) {
-            window.chatManager.showChatInterface();
-        } else {
-            alert('💬 Chat feature coming soon!');
-        }
-    }
-
-    openChatWithPatient(patientId) {
-        if (window.chatManager) {
-            this.findAppointmentWithPatient(patientId).then(appointmentId => {
-                if (appointmentId) {
-                    window.chatManager.showChatInterface(appointmentId, patientId);
-                } else {
-                    alert('No appointment found with this patient to chat.');
-                }
-            });
-        } else {
-            alert('💬 Chat feature coming soon!');
-        }
-    }
-
-    async findAppointmentWithPatient(patientId) {
-        const userId = authManager.getUserId();
-        
-        try {
-            const { data, error } = await supabase
-                .from('appointments')
-                .select('id')
-                .eq('doctor_id', userId)
-                .eq('patient_id', patientId)
-                .in('status', ['scheduled', 'completed'])
-                .order('scheduled_at', { ascending: false })
-                .limit(1);
-
-            if (error) return null;
-            return data && data.length > 0 ? data[0].id : null;
-        } catch (error) {
-            return null;
-        }
-    }
-
     openConsultationModal(appointmentId, patientId, patientName) {
         const modalHtml = `
             <div class="modal fade" id="consultationModal" tabindex="-1">
@@ -1337,6 +1270,152 @@ class DoctorManager {
         modal._element.addEventListener('hidden.bs.modal', () => {
             modal._element.remove();
         });
+    }
+
+    // =============================================
+    // OTHER METHODS
+    // =============================================
+    async loadProfileContent(container) {
+        const profile = authManager.getUserProfile();
+        
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>My Profile</h2>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <form id="profileForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="fullName" value="${profile.full_name}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" value="${profile.email}" disabled>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Specialty</label>
+                                    <input type="text" class="form-control" id="specialty" value="${profile.specialty || 'General Practice'}" disabled>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Phone</label>
+                                    <input type="tel" class="form-control" id="phone" value="${profile.phone || ''}">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Update Profile</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fullName = document.getElementById('fullName').value;
+            const phone = document.getElementById('phone').value;
+
+            const result = await this.updateProfile(fullName, phone);
+            alert(result.message);
+        });
+    }
+
+    async updateProfile(fullName, phone) {
+        try {
+            const userId = authManager.getUserId();
+            
+            const { error } = await supabase
+                .from('profiles')
+                .update({ full_name: fullName, phone: phone })
+                .eq('id', userId);
+
+            if (error) throw error;
+
+            authManager.userProfile.full_name = fullName;
+            authManager.userProfile.phone = phone;
+
+            await authManager.logActivity(userId, 'UPDATE_PROFILE', 'Updated profile information');
+
+            return { success: true, message: '✅ Profile updated successfully!' };
+        } catch (error) {
+            console.error('Profile update error:', error);
+            return { success: false, message: error.message || 'Failed to update profile.' };
+        }
+    }
+
+    joinVideoCall(appointmentId, roomId, patientName) {
+        console.log('📞 Doctor joinVideoCall called:', { appointmentId, roomId, patientName });
+        
+        if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
+            alert('❌ No video room found for this appointment.');
+            return;
+        }
+        
+        let vm = window.videoManager || videoManager || null;
+        
+        if (!vm) {
+            alert('❌ Video service not available. Please refresh.');
+            return;
+        }
+        
+        const profile = authManager?.getUserProfile();
+        const displayName = `Dr. ${profile?.full_name || 'Doctor'}`;
+        
+        if (patientName && !confirm(`Start video call with ${patientName}?`)) {
+            return;
+        }
+        
+        try {
+            vm.joinRoom(roomId, displayName);
+        } catch (error) {
+            console.error('❌ Error joining video call:', error);
+            alert('Failed to start video call: ' + error.message);
+        }
+    }
+
+    openChat() {
+        if (window.chatManager) {
+            window.chatManager.showChatInterface();
+        } else {
+            alert('💬 Chat feature coming soon!');
+        }
+    }
+
+    openChatWithPatient(patientId) {
+        if (window.chatManager) {
+            this.findAppointmentWithPatient(patientId).then(appointmentId => {
+                if (appointmentId) {
+                    window.chatManager.showChatInterface(appointmentId, patientId);
+                } else {
+                    alert('No appointment found with this patient to chat.');
+                }
+            });
+        } else {
+            alert('💬 Chat feature coming soon!');
+        }
+    }
+
+    async findAppointmentWithPatient(patientId) {
+        const userId = authManager.getUserId();
+        
+        try {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('id')
+                .eq('doctor_id', userId)
+                .eq('patient_id', patientId)
+                .in('status', ['scheduled', 'completed'])
+                .order('scheduled_at', { ascending: false })
+                .limit(1);
+
+            if (error) return null;
+            return data && data.length > 0 ? data[0].id : null;
+        } catch (error) {
+            return null;
+        }
     }
 }
 
