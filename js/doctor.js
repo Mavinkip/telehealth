@@ -1,6 +1,6 @@
 /*
- * File: doctor.js - Updated with proper video call support
- * Purpose: Handle doctor-specific functionality
+ * File: doctor.js - Complete with chat functionality
+ * Purpose: Handle doctor-specific functionality with chat integration
  */
 
 class DoctorManager {
@@ -34,6 +34,9 @@ class DoctorManager {
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="#" data-view="patients">Patients</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-view="chat">💬 Messages</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="#" data-view="profile">Profile</a>
@@ -81,12 +84,18 @@ class DoctorManager {
             case 'patients':
                 await this.loadPatientsContent(content);
                 break;
+            case 'chat':
+                this.openChat();
+                break;
             case 'profile':
                 await this.loadProfileContent(content);
                 break;
         }
     }
 
+    // =============================================
+    // DASHBOARD CONTENT
+    // =============================================
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
         
@@ -121,6 +130,13 @@ class DoctorManager {
             .eq('status', 'completed')
             .gte('scheduled_at', thisMonth.toISOString());
 
+        // Get unread messages count
+        const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_id', userId)
+            .is('read_at', null);
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
@@ -129,25 +145,32 @@ class DoctorManager {
                 </div>
             </div>
             <div class="row mt-4">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card dashboard-card">
                         <div class="icon">📅</div>
                         <h4>${todayAppointments?.length || 0}</h4>
                         <p class="text-muted">Today's Appointments</p>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card dashboard-card">
                         <div class="icon">👥</div>
                         <h4>${patientCount || 0}</h4>
                         <p class="text-muted">Total Patients</p>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card dashboard-card">
                         <div class="icon">✅</div>
                         <h4>${completedCount || 0}</h4>
                         <p class="text-muted">Completed This Month</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card dashboard-card" onclick="doctorManager.openChat()">
+                        <div class="icon">💬</div>
+                        <h4>${unreadCount || 0}</h4>
+                        <p class="text-muted">Unread Messages ${unreadCount > 0 ? '🔴' : ''}</p>
                     </div>
                 </div>
             </div>
@@ -174,6 +197,9 @@ class DoctorManager {
                                                 <button class="btn btn-sm btn-secondary" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${apt.patient.full_name}')">
                                                     📋 Consult
                                                 </button>
+                                                <button class="btn btn-sm btn-info" onclick="doctorManager.openChatWithPatient('${apt.patient_id}')">
+                                                    💬 Message
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -187,6 +213,9 @@ class DoctorManager {
         `;
     }
 
+    // =============================================
+    // APPOINTMENTS CONTENT
+    // =============================================
     async loadAppointmentsContent(container) {
         const userId = authManager.getUserId();
         
@@ -217,23 +246,41 @@ class DoctorManager {
                                                 <th>Patient</th>
                                                 <th>Contact</th>
                                                 <th>Date & Time</th>
+                                                <th>Type</th>
                                                 <th>Status</th>
+                                                <th>Payment</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${appointments.map(apt => `
                                                 <tr>
-                                                    <td>${apt.patient.full_name}</td>
+                                                    <td><strong>${apt.patient.full_name}</strong></td>
                                                     <td>${apt.patient.email}<br><small>${apt.patient.phone || 'No phone'}</small></td>
-                                                    <td>${new Date(apt.scheduled_at).toLocaleString()}</td>
+                                                    <td><small>${new Date(apt.scheduled_at).toLocaleString()}</small></td>
+                                                    <td><span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">${apt.consultation_type || 'video'}</span></td>
                                                     <td><span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">${apt.status}</span></td>
                                                     <td>
+                                                        ${apt.payment_status === 'paid' 
+                                                            ? '<span class="badge bg-success">✅ Paid</span>' 
+                                                            : apt.payment_status === 'pending' && apt.status === 'completed'
+                                                            ? '<span class="badge bg-warning">⏳ Pending</span>'
+                                                            : '<span class="badge bg-secondary">-</span>'
+                                                        }
+                                                        ${apt.amount_paid ? `<br><small>KES ${apt.amount_paid}</small>` : ''}
+                                                    </td>
+                                                    <td>
                                                         ${apt.status === 'scheduled' ? `
-                                                            <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.patient.full_name}')">🎥 Call</button>
-                                                            <button class="btn btn-sm btn-secondary" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${apt.patient.full_name}')">📋 Consult</button>
+                                                            ${apt.consultation_type === 'video' ? `
+                                                                <button class="btn btn-sm btn-primary mb-1 w-100" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.patient.full_name}')">🎥 Call</button>
+                                                            ` : `
+                                                                <button class="btn btn-sm btn-success mb-1 w-100" onclick="alert('📍 Physical consultation at your clinic.')">📍 Clinic</button>
+                                                            `}
+                                                            <button class="btn btn-sm btn-secondary mb-1 w-100" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${apt.patient.full_name}')">📋 Consult</button>
+                                                            <button class="btn btn-sm btn-info w-100" onclick="doctorManager.openChatWithPatient('${apt.patient_id}')">💬 Chat</button>
                                                         ` : apt.status === 'completed' ? `
-                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.viewConsultation('${apt.id}')">📄 View</button>
+                                                            <button class="btn btn-sm btn-info mb-1 w-100" onclick="doctorManager.viewConsultation('${apt.id}')">📄 View</button>
+                                                            <button class="btn btn-sm btn-secondary w-100" onclick="doctorManager.openChatWithPatient('${apt.patient_id}')">💬 Chat</button>
                                                         ` : '-'}
                                                     </td>
                                                 </tr>
@@ -250,6 +297,9 @@ class DoctorManager {
         `;
     }
 
+    // =============================================
+    // PATIENTS CONTENT
+    // =============================================
     async loadPatientsContent(container) {
         const userId = authManager.getUserId();
         
@@ -288,7 +338,7 @@ class DoctorManager {
                                         <tbody>
                                             ${uniquePatients.map(patient => `
                                                 <tr>
-                                                    <td>${patient.full_name}</td>
+                                                    <td><strong>${patient.full_name}</strong></td>
                                                     <td>${patient.email}</td>
                                                     <td>${patient.phone || '-'}</td>
                                                     <td>${new Date(patient.created_at).toLocaleDateString()}</td>
@@ -296,7 +346,7 @@ class DoctorManager {
                                                         <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name}')">
                                                             📄 History
                                                         </button>
-                                                        <button class="btn btn-sm btn-secondary" onclick="doctorManager.openChatWithPatient('${patient.id}')">
+                                                        <button class="btn btn-sm btn-info" onclick="doctorManager.openChatWithPatient('${patient.id}')">
                                                             💬 Message
                                                         </button>
                                                     </td>
@@ -314,6 +364,9 @@ class DoctorManager {
         `;
     }
 
+    // =============================================
+    // PROFILE CONTENT
+    // =============================================
     async loadProfileContent(container) {
         const profile = authManager.getUserProfile();
         
@@ -386,43 +439,91 @@ class DoctorManager {
     }
 
     // =============================================
-    // VIDEO CALL - UPDATED
+    // VIDEO CALL
     // =============================================
     joinVideoCall(appointmentId, roomId, patientName) {
         console.log('📞 Doctor joinVideoCall called:', { appointmentId, roomId, patientName });
         
-        // Check if roomId exists
         if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
             alert('❌ No video room found for this appointment. Please book a new appointment.');
             return;
         }
         
-        // Check if videoManager exists
-        if (typeof videoManager === 'undefined' || !videoManager) {
+        let vm = window.videoManager || videoManager || null;
+        
+        if (!vm) {
             console.error('❌ VideoManager not found!');
             alert('❌ Video service not available. Please refresh the page and try again.');
             return;
         }
         
-        // Get doctor's name
         const profile = authManager?.getUserProfile();
         const displayName = `Dr. ${profile?.full_name || 'Doctor'}`;
         
         console.log('🎥 Starting video call with:', { roomId, displayName, patientName });
         
-        // Show confirmation
-        if (patientName) {
-            if (!confirm(`Start video call with ${patientName}?`)) {
-                return;
-            }
+        if (patientName && !confirm(`Start video call with ${patientName}?`)) {
+            return;
         }
         
-        // Join the room
         try {
-            videoManager.joinRoom(roomId, displayName);
+            vm.joinRoom(roomId, displayName);
         } catch (error) {
             console.error('❌ Error joining video call:', error);
             alert('Failed to start video call: ' + error.message);
+        }
+    }
+
+    // =============================================
+    // CHAT FUNCTIONALITY
+    // =============================================
+    openChat() {
+        console.log('💬 Doctor opening chat...');
+        if (window.chatManager) {
+            window.chatManager.showChatInterface();
+        } else {
+            alert('💬 Chat feature coming soon!');
+        }
+    }
+
+    openChatWithPatient(patientId) {
+        console.log('💬 Doctor opening chat with patient:', patientId);
+        if (window.chatManager) {
+            // Find appointment with this patient
+            this.findAppointmentWithPatient(patientId).then(appointmentId => {
+                if (appointmentId) {
+                    window.chatManager.showChatInterface(appointmentId, patientId);
+                } else {
+                    alert('No appointment found with this patient to chat.');
+                }
+            });
+        } else {
+            alert('💬 Chat feature coming soon!');
+        }
+    }
+
+    async findAppointmentWithPatient(patientId) {
+        const userId = authManager.getUserId();
+        
+        try {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('id')
+                .eq('doctor_id', userId)
+                .eq('patient_id', patientId)
+                .in('status', ['scheduled', 'completed'])
+                .order('scheduled_at', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                console.error('Error finding appointment:', error);
+                return null;
+            }
+
+            return data && data.length > 0 ? data[0].id : null;
+        } catch (error) {
+            console.error('Error finding appointment:', error);
+            return null;
         }
     }
 
@@ -467,7 +568,7 @@ class DoctorManager {
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" type="checkbox" id="completeAppointment">
                                     <label class="form-check-label" for="completeAppointment">
-                                        ✅ Mark appointment as completed
+                                        ✅ Mark appointment as completed (Patient will be charged)
                                     </label>
                                 </div>
                                 <button type="submit" class="btn btn-primary">💾 Save Consultation</button>
@@ -566,12 +667,41 @@ class DoctorManager {
             }
 
             if (completeAppointment) {
-                const { error: aptError } = await supabase
+                // Get appointment to check type
+                const { data: aptData, error: aptError } = await supabase
                     .from('appointments')
-                    .update({ status: 'completed' })
-                    .eq('id', appointmentId);
+                    .select('consultation_type, amount_paid')
+                    .eq('id', appointmentId)
+                    .single();
 
                 if (aptError) throw aptError;
+
+                // For video calls, payment is pending (patient pays after)
+                // For physical, payment was already made at booking
+                const paymentStatus = aptData.consultation_type === 'video' ? 'pending' : 'paid';
+                
+                const { error: updateError } = await supabase
+                    .from('appointments')
+                    .update({ 
+                        status: 'completed',
+                        completed_at: new Date().toISOString(),
+                        payment_status: paymentStatus
+                    })
+                    .eq('id', appointmentId);
+
+                if (updateError) throw updateError;
+
+                // If video call, notify patient about payment
+                if (aptData.consultation_type === 'video') {
+                    // Send notification via chat
+                    const patientName = await this.getPatientName(patientId);
+                    await this.sendPaymentNotification(appointmentId, patientId, aptData.amount_paid || 300);
+                    
+                    // Show alert to doctor
+                    alert(`✅ Consultation completed!\n\n💰 Patient will be charged KES ${aptData.amount_paid || 300} for this video consultation.\nThey will see a "Pay Now" button on their dashboard.`);
+                } else {
+                    alert('✅ Physical consultation completed! Payment was already made at booking.');
+                }
             }
 
             await authManager.logActivity(doctorId, 'SAVE_CONSULTATION', `Saved consultation for appointment ${appointmentId}`);
@@ -583,6 +713,111 @@ class DoctorManager {
         }
     }
 
+    async getPatientName(patientId) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', patientId)
+                .single();
+
+            if (error) throw error;
+            return data?.full_name || 'Patient';
+        } catch (error) {
+            console.error('Error getting patient name:', error);
+            return 'Patient';
+        }
+    }
+
+    async sendPaymentNotification(appointmentId, patientId, amount) {
+        try {
+            // Get doctor name
+            const doctorId = authManager.getUserId();
+            const { data: doctorData } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', doctorId)
+                .single();
+
+            const doctorName = doctorData?.full_name || 'Doctor';
+
+            // Send a message to the patient about payment
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    sender_id: doctorId,
+                    receiver_id: patientId,
+                    appointment_id: appointmentId,
+                    content: `✅ Your consultation with Dr. ${doctorName} is complete.\n\n💳 Please pay KES ${amount} for this video consultation.\nYou can pay from the Appointments page.\n\nThank you!`,
+                    sent_at: new Date().toISOString()
+                }]);
+
+            if (error) throw error;
+
+            console.log('💰 Payment notification sent to patient');
+        } catch (error) {
+            console.error('Error sending payment notification:', error);
+        }
+    }
+
+    async viewConsultation(appointmentId) {
+        const { data: records } = await supabase
+            .from('medical_records')
+            .select(`
+                *,
+                doctor:profiles!medical_records_doctor_id_fkey (full_name),
+                appointment:appointments (scheduled_at),
+                prescriptions:prescriptions (*)
+            `)
+            .eq('appointment_id', appointmentId)
+            .order('created_at', { ascending: false });
+
+        if (!records || records.length === 0) {
+            alert('No consultation notes found for this appointment.');
+            return;
+        }
+
+        const record = records[0];
+        const modalHtml = `
+            <div class="modal fade" id="viewConsultationModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">📄 Consultation Notes</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p><strong>Doctor:</strong> ${record.doctor.full_name}</p>
+                            <p><strong>Date:</strong> ${new Date(record.created_at).toLocaleString()}</p>
+                            <hr>
+                            <h6>📝 SOAP Notes</h6>
+                            <p>${record.soap_notes || 'No notes available'}</p>
+                            ${record.prescriptions && record.prescriptions.length > 0 ? `
+                                <h6>💊 Prescriptions:</h6>
+                                <ul>
+                                    ${record.prescriptions.map(rx => `
+                                        <li><strong>${rx.medication}</strong> - ${rx.dosage} (${rx.instructions})</li>
+                                    `).join('')}
+                                </ul>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('viewConsultationModal'));
+        modal.show();
+
+        modal._element.addEventListener('hidden.bs.modal', () => {
+            modal._element.remove();
+        });
+    }
+
+    // =============================================
+    // PATIENT HISTORY
+    // =============================================
     async viewPatientHistory(patientId, patientName) {
         const { data: records } = await supabase
             .from('medical_records')
@@ -638,14 +873,6 @@ class DoctorManager {
         modal._element.addEventListener('hidden.bs.modal', () => {
             modal._element.remove();
         });
-    }
-
-    openChatWithPatient(patientId) {
-        if (window.chatManager) {
-            window.chatManager.showChatInterface(null, patientId);
-        } else {
-            alert('💬 Chat feature coming soon!');
-        }
     }
 }
 
