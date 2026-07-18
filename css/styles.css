@@ -2,7 +2,6 @@
  * File: style.css
  * Purpose: Complete styling for Telehealth Communication System
  * Design: Modern, clean, medical-grade UI with smooth animations
- * Color Palette: Soft blues, whites, and medical-grade accents
  */
 
 /* ============================================
@@ -62,17 +61,6 @@
     box-sizing: border-box;
 }
 
-*,
-*::before,
-*::after {
-    transition: background 0.25s,
-                color 0.25s,
-                border-color 0.25s,
-                box-shadow 0.25s,
-                transform 0.25s,
-                opacity 0.25s;
-}
-
 html {
     scroll-behavior: smooth;
 }
@@ -117,12 +105,32 @@ a:hover {
 }
 
 /* ============================================
-   4. LAYOUT & CONTAINERS
+   4. LAYOUT & CONTAINERS - FIXED
    ============================================ */
 .container {
     max-width: 1280px;
     margin: 0 auto;
     padding: 0 24px;
+}
+
+/* FIX: Don't override Bootstrap's row class - use a different name */
+.grid-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+/* Keep Bootstrap row working properly */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -12px;
+    margin-left: -12px;
+}
+
+.row > * {
+    padding-right: 12px;
+    padding-left: 12px;
 }
 
 .section {
@@ -140,15 +148,8 @@ a:hover {
     margin-bottom: 24px;
 }
 
-/* Grid */
-.row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-}
-
 /* ============================================
-   5. CARDS
+   5. CARDS - FIXED
    ============================================ */
 .card {
     background: var(--surface);
@@ -157,6 +158,7 @@ a:hover {
     box-shadow: var(--shadow-sm);
     padding: 24px;
     transition: var(--transition);
+    height: 100%;
 }
 
 .card:hover {
@@ -189,15 +191,21 @@ a:hover {
     border-top: 1px solid var(--border);
 }
 
-/* Dashboard Cards */
+/* Dashboard Cards - FIXED */
 .dashboard-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 28px;
+    padding: 28px 20px;
     text-align: center;
     transition: var(--transition);
     cursor: pointer;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
 .dashboard-card:hover {
@@ -206,17 +214,18 @@ a:hover {
 }
 
 .dashboard-card .icon {
-    width: 72px;
-    height: 72px;
+    width: 70px;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius);
     background: var(--primary-light);
     color: var(--primary);
-    font-size: 32px;
+    font-size: 30px;
     margin: 0 auto 16px;
     transition: var(--transition);
+    flex-shrink: 0;
 }
 
 .dashboard-card:hover .icon {
@@ -225,16 +234,19 @@ a:hover {
     color: white;
 }
 
-.dashboard-card h3 {
+.dashboard-card h4 {
     font-size: 2rem;
     font-weight: 700;
     margin: 8px 0 4px;
+    line-height: 1.2;
 }
 
 .dashboard-card p {
     color: var(--text-light);
     margin: 0;
     font-weight: 500;
+    font-size: 0.9rem;
+    word-break: normal;
 }
 
 /* ============================================
@@ -288,6 +300,7 @@ a:hover {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 12px;
+    flex-wrap: wrap;
 }
 
 .appointment-card .patient-name {
@@ -344,6 +357,7 @@ a:hover {
     transition: var(--transition);
     text-decoration: none;
     line-height: 1;
+    white-space: nowrap;
 }
 
 .btn:disabled {
@@ -718,7 +732,8 @@ a:hover {
     align-items: center;
     margin-bottom: 20px;
     padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
 }
 
 .modal-title {
@@ -1035,10 +1050,10 @@ a:hover {
 }
 
 /* ============================================
-   16. RESPONSIVE
+   16. RESPONSIVE - FIXED
    ============================================ */
 @media (max-width: 992px) {
-    .row {
+    .grid-row {
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }
     
@@ -1073,11 +1088,18 @@ a:hover {
     }
     
     .dashboard-card {
-        padding: 20px;
+        padding: 20px 16px;
+        min-height: 150px;
     }
     
-    .dashboard-card h3 {
+    .dashboard-card h4 {
         font-size: 1.5rem;
+    }
+    
+    .dashboard-card .icon {
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
     }
     
     .appointment-card {
@@ -1105,10 +1127,6 @@ a:hover {
         padding: 28px;
     }
     
-    .row {
-        grid-template-columns: 1fr;
-    }
-    
     .navbar-nav {
         flex-direction: column;
         align-items: stretch;
@@ -1124,25 +1142,53 @@ a:hover {
         gap: 4px;
         justify-content: center;
     }
+    
+    /* Fix for Bootstrap columns on mobile */
+    .row > * {
+        padding-right: 8px;
+        padding-left: 8px;
+        margin-bottom: 16px;
+    }
 }
 
 @media (max-width: 480px) {
     h1 { font-size: 1.75rem; }
     h2 { font-size: 1.5rem; }
     h3 { font-size: 1.25rem; }
+    h4 { font-size: 1.1rem; }
     
     .auth-card {
         padding: 20px;
     }
     
     .btn {
-        padding: 8px 16px;
+        padding: 8px 14px;
         font-size: 0.8rem;
     }
     
     .badge {
         font-size: 0.65rem;
         padding: 4px 10px;
+    }
+    
+    .dashboard-card {
+        padding: 16px;
+        min-height: 120px;
+    }
+    
+    .dashboard-card h4 {
+        font-size: 1.25rem;
+    }
+    
+    .dashboard-card .icon {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .dashboard-card p {
+        font-size: 0.8rem;
     }
 }
 
