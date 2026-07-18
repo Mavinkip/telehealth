@@ -72,15 +72,16 @@ class AdminManager {
 
     // ── DASHBOARD ─────────────────────────────────────────────────────────
     async _dashboard(el) {
-        const [{ count: patients }, { count: doctors }, { count: appts },
-               { count: pendingDoctors }, { data: revenue }] = await Promise.all([
+        const [{ count: patients }, { count: activeDoctors }, { data: allDoctors }, { count: appts },
+               { data: revenue }] = await Promise.all([
             supabase.from('profiles').select('id',{count:'exact',head:true}).eq('role','patient'),
             supabase.from('profiles').select('id',{count:'exact',head:true}).eq('role','doctor').eq('is_active',true),
+            supabase.from('profiles').select('id,is_active').eq('role','doctor'),
             supabase.from('appointments').select('id',{count:'exact',head:true}),
-            supabase.from('profiles').select('id',{count:'exact',head:true}).eq('role','doctor').eq('is_active',false),
             supabase.from('payments').select('amount').eq('status','paid'),
         ]);
 
+        const pendingDoctors = allDoctors ? allDoctors.filter(d => !d.is_active).length : 0;
         const totalRevenue = (revenue||[]).reduce((s,p) => s + Number(p.amount), 0);
 
         el.innerHTML = `
@@ -89,13 +90,18 @@ class AdminManager {
                 <p class="text-muted">Live snapshot of platform activity</p>
             </div>
             ${pendingDoctors > 0 ? `
-                <div class="alert alert-warning" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <div class="alert alert-warning" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding:16px 20px;border-radius:12px;background:#FEF3C7;border:1px solid #FCD34D;">
                     <span>⚠️ <strong>${pendingDoctors}</strong> doctor${pendingDoctors>1?'s':''} awaiting activation</span>
-                    <button class="btn btn-sm btn-primary" onclick="adminManager._loadView('users');document.querySelector('[data-view=users]')?.click()">Review now</button>
-                </div>` : ''}
+                    <button class="btn btn-sm btn-primary" onclick="adminManager._loadView('users');setTimeout(()=>{document.querySelector('[data-view=users]')?.click();},100);">
+                        Review now
+                    </button>
+                </div>` : `
+                <div class="alert alert-success" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding:16px 20px;border-radius:12px;background:#DCFCE7;border:1px solid #86EFAC;">
+                    <span>✅ All doctors are activated</span>
+                </div>`}
             <div class="stats-grid">
                 ${this._stat('Active Patients', patients||0, 'accent')}
-                ${this._stat('Active Doctors', doctors||0, '')}
+                ${this._stat('Active Doctors', activeDoctors||0, '')}
                 ${this._stat('Pending Activation', pendingDoctors||0, 'warning')}
                 ${this._stat('Total Appointments', appts||0, '')}
                 ${this._stat('Revenue Collected', 'KES ' + (totalRevenue).toLocaleString(), 'success')}
@@ -118,11 +124,11 @@ class AdminManager {
         </div>`;
     }
 
-    // ── USERS (with doctor activation) ────────────────────────────────────
+    // ── USERS (with doctor activation - ALL DOCTORS SHOW) ────────────────
     async _users(el) {
         const { data: users } = await supabase
             .from('profiles')
-            .select('id,full_name,email,role,specialty,is_active,created_at')
+            .select('id,full_name,email,role,specialty,is_active,created_at,phone')
             .order('created_at',{ascending:false});
 
         const byRole = r => (users||[]).filter(u => u.role === r);
@@ -130,25 +136,45 @@ class AdminManager {
         const patients = byRole('patient');
         const admins   = byRole('admin');
 
+        const pendingDoctors = doctors.filter(d => !d.is_active);
+        const activeDoctors = doctors.filter(d => d.is_active);
+
         el.innerHTML = `
             <div class="page-header">
                 <h2>Manage Users</h2>
                 <p class="text-muted">Activate doctors, disable or delete accounts.</p>
             </div>
 
+            <!-- Pending Doctors - Prominent Section -->
+            ${pendingDoctors.length > 0 ? `
+            <div class="card mb-4" style="border:2px solid #FCD34D;background:#FFFBEB;">
+                <div class="card-header" style="background:#FEF3C7;">
+                    <h3 style="display:flex;align-items:center;gap:10px;">
+                        ⏳ Pending Activation (${pendingDoctors.length})
+                        <span style="font-size:0.8rem;font-weight:400;color:#92400E;">Click "Activate" to approve doctors</span>
+                    </h3>
+                </div>
+                ${this._userTable(pendingDoctors, true, false, true)}
+            </div>` : `
+            <div class="alert alert-success mb-4" style="padding:12px 16px;border-radius:12px;background:#DCFCE7;border:1px solid #86EFAC;">
+                ✅ All doctors are activated! No pending approvals.
+            </div>`}
+
+            <!-- Active Doctors -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h3>Doctors (${doctors.length})</h3>
-                    <span class="badge-warning">${doctors.filter(d=>!d.is_active).length} pending</span>
+                    <h3>Active Doctors (${activeDoctors.length})</h3>
                 </div>
-                ${this._userTable(doctors, true)}
+                ${this._userTable(activeDoctors, true)}
             </div>
 
+            <!-- Patients -->
             <div class="card mb-4">
                 <div class="card-header"><h3>Patients (${patients.length})</h3></div>
                 ${this._userTable(patients, false)}
             </div>
 
+            <!-- Administrators -->
             <div class="card">
                 <div class="card-header"><h3>Administrators (${admins.length})</h3></div>
                 ${this._userTable(admins, false, true)}
@@ -161,33 +187,50 @@ class AdminManager {
             </div>`;
     }
 
-    _userTable(users, showSpecialty, isAdmin=false) {
-        if (!users.length) return '<p class="text-muted" style="padding:16px">None yet.</p>';
+    _userTable(users, showSpecialty, isAdmin=false, isPending=false) {
+        if (!users.length) {
+            return `<p class="text-muted" style="padding:16px">None yet.</p>`;
+        }
+        
         return `
         <div class="table-wrap">
             <table class="dt">
                 <thead><tr>
-                    <th>Name</th><th>Email</th>
+                    <th>Name</th>
+                    <th>Email</th>
                     ${showSpecialty ? '<th>Specialty</th>' : ''}
-                    <th>Status</th><th>Joined</th><th></th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
                 </tr></thead>
                 <tbody>
                     ${users.map(u => `
-                    <tr>
-                        <td class="fw-600">${u.full_name}</td>
+                    <tr ${isPending ? 'style="background:#FFFBEB;"' : ''}>
+                        <td class="fw-600">${u.full_name} ${isPending ? '⭐' : ''}</td>
                         <td>${u.email}</td>
                         ${showSpecialty ? `<td>${u.specialty||'—'}</td>` : ''}
-                        <td><span class="pill pill-${u.is_active?'active':'disabled'}">${u.is_active?'Active':'Pending / Disabled'}</span></td>
+                        <td>
+                            <span class="pill pill-${u.is_active?'active':'disabled'}">
+                                ${u.is_active ? '✅ Active' : '⏳ Pending'}
+                            </span>
+                        </td>
                         <td>${new Date(u.created_at).toLocaleDateString()}</td>
                         <td style="white-space:nowrap">
                             ${!isAdmin ? `
-                                <button class="btn btn-sm btn-secondary"
-                                    onclick="adminManager._toggleActive('${u.id}',${u.is_active})">
-                                    ${u.is_active ? 'Disable' : 'Activate'}
-                                </button>
+                                ${!u.is_active ? `
+                                    <button class="btn btn-sm btn-success" style="background:#16A34A;color:white;border:none;padding:6px 14px;border-radius:8px;font-weight:600;"
+                                        onclick="adminManager._toggleActive('${u.id}',false)">
+                                        ✅ Activate
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-sm btn-secondary"
+                                        onclick="adminManager._toggleActive('${u.id}',true)">
+                                        ⛔ Disable
+                                    </button>
+                                `}
                                 <button class="btn btn-sm btn-danger"
                                     onclick="adminManager._deleteUser('${u.id}','${u.full_name}')">
-                                    Delete
+                                    🗑️ Delete
                                 </button>
                             ` : '<span class="text-muted text-sm">—</span>'}
                         </td>
@@ -200,36 +243,52 @@ class AdminManager {
     async _toggleActive(userId, currentlyActive) {
         const newState = !currentlyActive;
         const action   = newState ? 'activate' : 'disable';
-        if (!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this account?`)) return;
+        const confirmMsg = newState ? 
+            'Activate this doctor? They will be able to see patients and book appointments.' :
+            'Disable this account? The user will not be able to log in.';
+            
+        if (!confirm(confirmMsg)) return;
 
-        const { error } = await supabase
-            .from('profiles').update({ is_active: newState }).eq('id', userId);
-        if (error) { alert('Error: ' + error.message); return; }
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ is_active: newState })
+                .eq('id', userId);
+                
+            if (error) throw error;
 
-        await authManager.logActivity(authManager.getUserId(), `admin_${action}_user`, { targetId: userId });
-        this._users(document.getElementById('adminContent'));
+            await authManager.logActivity(authManager.getUserId(), `admin_${action}_user`, { targetId: userId });
+            
+            // Show success message
+            alert(newState ? '✅ Doctor activated successfully!' : '⛔ Account disabled.');
+            
+            // Refresh the users view
+            this._users(document.getElementById('adminContent'));
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
     }
 
     async _deleteUser(userId, name) {
-        if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+        if (!confirm(`⚠️ Permanently delete ${name}? This cannot be undone.`)) return;
 
-        // Delete the profile row; the `on delete cascade` on auth.users will clean up
-        // related records. The actual auth login can only be removed from the Supabase
-        // dashboard (Authentication → Users) since deleting from auth.users requires
-        // the service_role key which must not appear in client-side code.
-        const { error } = await supabase.from('profiles').delete().eq('id', userId);
-        if (error) { alert('Error: ' + error.message); return; }
+        try {
+            const { error } = await supabase.from('profiles').delete().eq('id', userId);
+            if (error) throw error;
 
-        await authManager.logActivity(authManager.getUserId(), 'admin_delete_user', { targetId: userId, name });
-        alert(`${name} has been removed. To fully delete their login, go to Supabase → Authentication → Users.`);
-        this._users(document.getElementById('adminContent'));
+            await authManager.logActivity(authManager.getUserId(), 'admin_delete_user', { targetId: userId, name });
+            alert(`${name} has been removed.`);
+            this._users(document.getElementById('adminContent'));
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
     }
 
     // ── ALL APPOINTMENTS ──────────────────────────────────────────────────
     async _appointments(el) {
         const { data: apts } = await supabase
             .from('appointments')
-            .select('id,scheduled_at,status,appointment_type,reason,patient:patient_id(full_name),doctor:doctor_id(full_name)')
+            .select('id,scheduled_at,status,consultation_type,notes,patient:patient_id(full_name,email),doctor:doctor_id(full_name,specialty)')
             .order('scheduled_at',{ascending:false});
 
         el.innerHTML = `
@@ -246,11 +305,11 @@ class AdminManager {
                             <tr>
                                 <td class="fw-600">${a.patient?.full_name||'—'}</td>
                                 <td>${a.doctor?.full_name||'—'}</td>
-                                <td>${(a.appointment_type||'general').replace('_',' ')}</td>
+                                <td><span class="pill pill-${a.consultation_type||'video'}">${a.consultation_type||'video'}</span></td>
                                 <td>${new Date(a.scheduled_at).toLocaleString()}</td>
                                 <td><span class="pill pill-${a.status}">${a.status.replace('_',' ')}</span></td>
                                 <td>
-                                    ${a.status==='scheduled'||a.status==='pending_payment' ? `
+                                    ${a.status==='scheduled' ? `
                                         <button class="btn btn-sm btn-danger"
                                             onclick="adminManager._cancelApt('${a.id}')">Cancel</button>` : '—'}
                                 </td>
@@ -312,9 +371,9 @@ class AdminManager {
     // ── REPORTS ───────────────────────────────────────────────────────────
     async _reports(el) {
         const [{ data: apts }, { data: patients }, { data: doctors }] = await Promise.all([
-            supabase.from('appointments').select('status,scheduled_at,appointment_type'),
+            supabase.from('appointments').select('status,scheduled_at,consultation_type'),
             supabase.from('profiles').select('gender,date_of_birth').eq('role','patient'),
-            supabase.from('profiles').select('specialty').eq('role','doctor'),
+            supabase.from('profiles').select('specialty,is_active').eq('role','doctor'),
         ]);
 
         const total = apts?.length || 0;
@@ -322,10 +381,15 @@ class AdminManager {
         (apts||[]).forEach(a => { if (counts[a.status]!==undefined) counts[a.status]++; });
 
         const typeCounts = {};
-        (apts||[]).forEach(a => { typeCounts[a.appointment_type||'general'] = (typeCounts[a.appointment_type||'general']||0)+1; });
+        (apts||[]).forEach(a => { typeCounts[a.consultation_type||'video'] = (typeCounts[a.consultation_type||'video']||0)+1; });
 
         const specialtyCounts = {};
-        (doctors||[]).forEach(d => { const s=d.specialty||'Not specified'; specialtyCounts[s]=(specialtyCounts[s]||0)+1; });
+        (doctors||[]).forEach(d => { 
+            if (d.is_active) {
+                const s=d.specialty||'General Practice'; 
+                specialtyCounts[s]=(specialtyCounts[s]||0)+1; 
+            }
+        });
 
         const genderCounts = {};
         (patients||[]).forEach(p => { const g=p.gender||'Not specified'; genderCounts[g]=(genderCounts[g]||0)+1; });
@@ -358,8 +422,10 @@ class AdminManager {
                     ${Object.entries(typeCounts).map(([l,c])=>bar(l.replace('_',' '),c,total)).join('')}
                 </div>
                 <div class="card">
-                    <h3>Doctor Specialties</h3>
-                    ${Object.entries(specialtyCounts).map(([l,c])=>bar(l,c,doctors?.length||1)).join('')}
+                    <h3>Active Doctor Specialties</h3>
+                    ${Object.entries(specialtyCounts).length > 0 
+                        ? Object.entries(specialtyCounts).map(([l,c])=>bar(l,c,doctors?.filter(d=>d.is_active).length||1)).join('')
+                        : '<p class="text-muted">No active doctors</p>'}
                 </div>
                 <div class="card">
                     <h3>Patient Gender</h3>
@@ -372,15 +438,17 @@ class AdminManager {
     async _logs(el) {
         const { data: logs } = await supabase
             .from('activity_logs')
-            .select('id,action,details,created_at,user:user_id(full_name,role)')
+            .select('id,action,details,created_at,user:user_id(full_name,role,email)')
             .order('created_at',{ascending:false})
             .limit(100);
 
         const ACTION_LABELS = {
             login:'Logged in', logout:'Logged out', register:'Registered',
             appointment_booked:'Booked appointment', payment_completed:'Payment completed',
-            admin_activate_user:'Activated user', admin_disable_user:'Disabled user',
-            admin_delete_user:'Deleted user', admin_cancel_appointment:'Cancelled appointment',
+            admin_activate_user:'✅ Activated user', admin_disable_user:'⛔ Disabled user',
+            admin_delete_user:'🗑️ Deleted user', admin_cancel_appointment:'❌ Cancelled appointment',
+            WRITE_PRESCRIPTION:'💊 Wrote prescription', SCHEDULE_FOLLOW_UP:'📅 Scheduled follow-up',
+            SAVE_CONSULTATION:'📋 Saved consultation', UPDATE_PROFILE:'📝 Updated profile'
         };
 
         el.innerHTML = `
