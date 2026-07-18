@@ -1,604 +1,412 @@
 /*
  * File: admin.js
- * Purpose: Handle admin-specific functionality (user management, reports, system monitoring)
- * Dependencies: supabase-js (from config.js), auth.js
- * Fits in: Admin module
+ * Purpose: Admin portal — user management (with doctor activation), appointments,
+ *          payments, reports, activity logs.
  */
 
 class AdminManager {
-    constructor() {
-        this.currentView = 'dashboard';
-    }
 
     showDashboard() {
-        const app = document.getElementById('app');
+        const app     = document.getElementById('app');
         const profile = authManager.getUserProfile();
-        
+
         app.innerHTML = `
-            <nav class="navbar navbar-expand-lg navbar-light">
-                <div class="container">
-                    <a class="navbar-brand" href="#">Telehealth System (Admin)</a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav me-auto">
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="dashboard">Dashboard</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="users">User Management</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="appointments">All Appointments</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="reports">Reports</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="logs">Activity Logs</a>
-                            </li>
-                        </ul>
-                        <span class="navbar-text me-3">Admin: ${profile.full_name}</span>
-                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Logout</button>
-                    </div>
-                </div>
-            </nav>
-            <div class="container mt-4" id="adminContent">
-                <!-- Content will be loaded here -->
-            </div>
-        `;
+            ${this._navbar(profile)}
+            <div class="container mt-4" id="adminContent"></div>`;
 
-        // Attach event listeners
-        document.querySelectorAll('[data-view]').forEach(link => {
-            link.addEventListener('click', (e) => {
+        this._attachNavEvents();
+        this._loadView('dashboard');
+    }
+
+    _navbar(profile) {
+        return `
+        <nav class="topnav">
+            <div class="topnav-brand">
+                <div class="brand-mark">TH</div>
+                <span>Admin Portal</span>
+            </div>
+            <div class="topnav-links">
+                ${['dashboard','users','appointments','payments','reports','logs'].map(v => `
+                    <a href="#" class="nav-link" data-view="${v}">${this._viewLabel(v)}</a>
+                `).join('')}
+            </div>
+            <div class="topnav-right">
+                <span class="nav-user">${profile.full_name}</span>
+                <button class="btn btn-sm btn-danger-outline" id="logoutBtn">Sign out</button>
+            </div>
+        </nav>`;
+    }
+
+    _viewLabel(v) {
+        return { dashboard:'Overview', users:'Users', appointments:'Appointments',
+                 payments:'Payments', reports:'Reports', logs:'Logs' }[v] || v;
+    }
+
+    _attachNavEvents() {
+        document.querySelectorAll('[data-view]').forEach(el =>
+            el.addEventListener('click', e => {
                 e.preventDefault();
-                this.currentView = e.target.dataset.view;
-                this.loadView(this.currentView);
-            });
-        });
-
+                document.querySelectorAll('[data-view]').forEach(l => l.classList.remove('active'));
+                el.classList.add('active');
+                this._loadView(el.dataset.view);
+            })
+        );
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            const result = await authManager.logout();
-            if (result.success) {
-                alert(result.message);
-            }
+            await authManager.logout();
         });
-
-        this.loadView('dashboard');
     }
 
-    async loadView(view) {
-        const content = document.getElementById('adminContent');
-        
-        switch(view) {
-            case 'dashboard':
-                await this.loadDashboardContent(content);
-                break;
-            case 'users':
-                await this.loadUsersContent(content);
-                break;
-            case 'appointments':
-                await this.loadAllAppointmentsContent(content);
-                break;
-            case 'reports':
-                await this.loadReportsContent(content);
-                break;
-            case 'logs':
-                await this.loadLogsContent(content);
-                break;
-        }
+    _loadView(view) {
+        const el = document.getElementById('adminContent');
+        if (!el) return;
+        const map = {
+            dashboard:    () => this._dashboard(el),
+            users:        () => this._users(el),
+            appointments: () => this._appointments(el),
+            payments:     () => this._payments(el),
+            reports:      () => this._reports(el),
+            logs:         () => this._logs(el),
+        };
+        (map[view] || map.dashboard)();
     }
 
-    async loadDashboardContent(container) {
-        // Get statistics
-        const { count: patientCount } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'patient');
+    // ── DASHBOARD ─────────────────────────────────────────────────────────
+    async _dashboard(el) {
+        const [{ count: patients }, { count: doctors }, { count: appts },
+               { count: pendingDoctors }, { data: revenue }] = await Promise.all([
+            supabase.from('profiles').select('id',{count:'exact',head:true}).eq('role','patient'),
+            supabase.from('profiles').select('id',{count:'exact',head:true}).eq('role','doctor').eq('is_active',true),
+            supabase.from('appointments').select('id',{count:'exact',head:true}),
+            supabase.from('profiles').select('id',{count:'exact',head:true}).eq('role','doctor').eq('is_active',false),
+            supabase.from('payments').select('amount').eq('status','paid'),
+        ]);
 
-        const { count: doctorCount } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'doctor');
+        const totalRevenue = (revenue||[]).reduce((s,p) => s + Number(p.amount), 0);
 
-        const { count: appointmentCount } = await supabase
-            .from('appointments')
-            .select('*', { count: 'exact', head: true });
-
-        const { count: completedCount } = await supabase
-            .from('appointments')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'completed');
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>Admin Dashboard</h2>
-                    <p class="text-muted">System Overview</p>
-                </div>
+        el.innerHTML = `
+            <div class="page-header">
+                <h2>System Overview</h2>
+                <p class="text-muted">Live snapshot of platform activity</p>
             </div>
-            <div class="row mt-4">
-                <div class="col-md-3">
-                    <div class="card dashboard-card">
-                        <div class="icon">👥</div>
-                        <h4>${patientCount || 0}</h4>
-                        <p class="text-muted">Total Patients</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card dashboard-card">
-                        <div class="icon">👨‍⚕️</div>
-                        <h4>${doctorCount || 0}</h4>
-                        <p class="text-muted">Total Doctors</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card dashboard-card">
-                        <div class="icon">📅</div>
-                        <h4>${appointmentCount || 0}</h4>
-                        <p class="text-muted">Total Appointments</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card dashboard-card">
-                        <div class="icon">✅</div>
-                        <h4>${completedCount || 0}</h4>
-                        <p class="text-muted">Completed Consultations</p>
-                    </div>
-                </div>
+            ${pendingDoctors > 0 ? `
+                <div class="alert alert-warning" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                    <span>⚠️ <strong>${pendingDoctors}</strong> doctor${pendingDoctors>1?'s':''} awaiting activation</span>
+                    <button class="btn btn-sm btn-primary" onclick="adminManager._loadView('users');document.querySelector('[data-view=users]')?.click()">Review now</button>
+                </div>` : ''}
+            <div class="stats-grid">
+                ${this._stat('Active Patients', patients||0, 'accent')}
+                ${this._stat('Active Doctors', doctors||0, '')}
+                ${this._stat('Pending Activation', pendingDoctors||0, 'warning')}
+                ${this._stat('Total Appointments', appts||0, '')}
+                ${this._stat('Revenue Collected', 'KES ' + (totalRevenue).toLocaleString(), 'success')}
             </div>
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Quick Actions</h5>
-                        </div>
-                        <div class="card-body">
-                            <button class="btn btn-primary mb-2 w-100" onclick="adminManager.loadView('users')">Manage Users</button>
-                            <button class="btn btn-secondary mb-2 w-100" onclick="adminManager.loadView('appointments')">View All Appointments</button>
-                            <button class="btn btn-info mb-2 w-100" onclick="adminManager.loadView('reports')">Generate Reports</button>
-                            <button class="btn btn-warning w-100" onclick="adminManager.loadView('logs')">View Activity Logs</button>
-                        </div>
-                    </div>
+            <div class="card mt-4">
+                <div class="card-header"><h3>Quick Actions</h3></div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:4px">
+                    ${['users','appointments','payments','reports','logs'].map(v => `
+                        <button class="btn btn-secondary" onclick="adminManager._loadView('${v}')">
+                            ${this._viewLabel(v)}
+                        </button>`).join('')}
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">System Status</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-success">
-                                <strong>Database:</strong> Connected
-                            </div>
-                            <div class="alert alert-success">
-                                <strong>Authentication:</strong> Operational
-                            </div>
-                            <div class="alert alert-success">
-                                <strong>Realtime:</strong> Active
-                            </div>
-                            <div class="alert alert-success">
-                                <strong>Video Service:</strong> Ready (Jitsi Meet)
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+            </div>`;
     }
 
-    async loadUsersContent(container) {
+    _stat(label, value, cls='') {
+        return `<div class="stat-card">
+            <div class="stat-label">${label}</div>
+            <div class="stat-value ${cls ? 'stat-'+cls : ''}">${value}</div>
+        </div>`;
+    }
+
+    // ── USERS (with doctor activation) ────────────────────────────────────
+    async _users(el) {
         const { data: users } = await supabase
             .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .select('id,full_name,email,role,specialty,is_active,created_at')
+            .order('created_at',{ascending:false});
 
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>User Management</h2>
-                    <button class="btn btn-primary mb-3" onclick="adminManager.showAddUserModal()">Add New User</button>
-                </div>
+        const byRole = r => (users||[]).filter(u => u.role === r);
+        const doctors  = byRole('doctor');
+        const patients = byRole('patient');
+        const admins   = byRole('admin');
+
+        el.innerHTML = `
+            <div class="page-header">
+                <h2>Manage Users</h2>
+                <p class="text-muted">Activate doctors, disable or delete accounts.</p>
             </div>
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            ${users && users.length > 0
-                                ? `<table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Role</th>
-                                            <th>Specialty</th>
-                                            <th>Created</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${users.map(user => `
-                                            <tr>
-                                                <td>${user.full_name}</td>
-                                                <td>${user.email}</td>
-                                                <td><span class="badge ${user.role === 'admin' ? 'bg-danger' : user.role === 'doctor' ? 'bg-primary' : 'bg-success'}">${user.role}</span></td>
-                                                <td>${user.specialty || '-'}</td>
-                                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
-                                                <td>
-                                                    <button class="btn btn-sm btn-info" onclick="adminManager.editUser('${user.id}')">Edit</button>
-                                                    ${user.role !== 'admin' ? `
-                                                        <button class="btn btn-sm btn-danger" onclick="adminManager.deleteUser('${user.id}', '${user.full_name}')">Delete</button>
-                                                    ` : ''}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>`
-                                : '<p class="text-muted">No users found</p>'
-                            }
-                        </div>
-                    </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Doctors (${doctors.length})</h3>
+                    <span class="badge-warning">${doctors.filter(d=>!d.is_active).length} pending</span>
                 </div>
+                ${this._userTable(doctors, true)}
             </div>
-        `;
-    }
 
-    showAddUserModal() {
-        const modalHtml = `
-            <div class="modal fade" id="addUserModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Add New User</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="addUserForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" id="newFullName" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="newEmail" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" class="form-control" id="newPassword" required minlength="6">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Role</label>
-                                    <select class="form-select" id="newRole" required>
-                                        <option value="patient">Patient</option>
-                                        <option value="doctor">Doctor</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3" id="newSpecialtyField" style="display: none;">
-                                    <label class="form-label">Specialty</label>
-                                    <select class="form-select" id="newSpecialty">
-                                        <option value="">Select specialty</option>
-                                        <option value="General Practice">General Practice</option>
-                                        <option value="Cardiology">Cardiology</option>
-                                        <option value="Dermatology">Dermatology</option>
-                                        <option value="Pediatrics">Pediatrics</option>
-                                        <option value="Orthopedics">Orthopedics</option>
-                                        <option value="Neurology">Neurology</option>
-                                        <option value="Psychiatry">Psychiatry</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" id="newPhone">
-                                </div>
-                                <button type="submit" class="btn btn-primary">Add User</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+            <div class="card mb-4">
+                <div class="card-header"><h3>Patients (${patients.length})</h3></div>
+                ${this._userTable(patients, false)}
             </div>
-        `;
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        const modal = new bootstrap.Modal(document.getElementById('addUserModal'));
-        modal.show();
+            <div class="card">
+                <div class="card-header"><h3>Administrators (${admins.length})</h3></div>
+                ${this._userTable(admins, false, true)}
+            </div>
 
-        document.getElementById('newRole').addEventListener('change', (e) => {
-            document.getElementById('newSpecialtyField').style.display = e.target.value === 'doctor' ? 'block' : 'none';
-        });
-
-        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fullName = document.getElementById('newFullName').value;
-            const email = document.getElementById('newEmail').value;
-            const password = document.getElementById('newPassword').value;
-            const role = document.getElementById('newRole').value;
-            const specialty = document.getElementById('newSpecialty').value;
-            const phone = document.getElementById('newPhone').value;
-
-            const result = await this.addUser(email, password, fullName, role, phone, specialty);
-            alert(result.message);
-            
-            if (result.success) {
-                modal.hide();
-                this.loadView('users');
-            }
-        });
-
-        modal._element.addEventListener('hidden.bs.modal', () => {
-            modal._element.remove();
-        });
+            <div class="alert alert-info mt-4">
+                <strong>Note:</strong> New admin accounts must be created directly in the
+                Supabase dashboard (Authentication → Add user) with role = 'admin' in the metadata.
+                Patients and doctors can self-register from the login page.
+            </div>`;
     }
 
-    async addUser(email, password, fullName, role, phone, specialty) {
-        try {
-            // Create user in Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        full_name: fullName,
-                        role: role
-                    }
-                }
-            });
-
-            if (authError) throw authError;
-
-            if (authData.user) {
-                // Create profile
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .insert([{
-                        id: authData.user.id,
-                        full_name: fullName,
-                        email: email,
-                        role: role,
-                        phone: phone,
-                        specialty: specialty,
-                        created_at: new Date().toISOString()
-                    }]);
-
-                if (profileError) throw profileError;
-
-                await authManager.logActivity(authManager.getUserId(), 'ADD_USER', `Added user ${email} as ${role}`);
-
-                return { success: true, message: 'User added successfully!' };
-            }
-        } catch (error) {
-            console.error('Add user error:', error);
-            return { success: false, message: error.message || 'Failed to add user.' };
-        }
+    _userTable(users, showSpecialty, isAdmin=false) {
+        if (!users.length) return '<p class="text-muted" style="padding:16px">None yet.</p>';
+        return `
+        <div class="table-wrap">
+            <table class="dt">
+                <thead><tr>
+                    <th>Name</th><th>Email</th>
+                    ${showSpecialty ? '<th>Specialty</th>' : ''}
+                    <th>Status</th><th>Joined</th><th></th>
+                </tr></thead>
+                <tbody>
+                    ${users.map(u => `
+                    <tr>
+                        <td class="fw-600">${u.full_name}</td>
+                        <td>${u.email}</td>
+                        ${showSpecialty ? `<td>${u.specialty||'—'}</td>` : ''}
+                        <td><span class="pill pill-${u.is_active?'active':'disabled'}">${u.is_active?'Active':'Pending / Disabled'}</span></td>
+                        <td>${new Date(u.created_at).toLocaleDateString()}</td>
+                        <td style="white-space:nowrap">
+                            ${!isAdmin ? `
+                                <button class="btn btn-sm btn-secondary"
+                                    onclick="adminManager._toggleActive('${u.id}',${u.is_active})">
+                                    ${u.is_active ? 'Disable' : 'Activate'}
+                                </button>
+                                <button class="btn btn-sm btn-danger"
+                                    onclick="adminManager._deleteUser('${u.id}','${u.full_name}')">
+                                    Delete
+                                </button>
+                            ` : '<span class="text-muted text-sm">—</span>'}
+                        </td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
     }
 
-    async deleteUser(userId, userName) {
-        if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) return;
+    async _toggleActive(userId, currentlyActive) {
+        const newState = !currentlyActive;
+        const action   = newState ? 'activate' : 'disable';
+        if (!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this account?`)) return;
 
-        try {
-            // Delete profile (cascade will handle related records)
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', userId);
+        const { error } = await supabase
+            .from('profiles').update({ is_active: newState }).eq('id', userId);
+        if (error) { alert('Error: ' + error.message); return; }
 
-            if (profileError) throw profileError;
-
-            await authManager.logActivity(authManager.getUserId(), 'DELETE_USER', `Deleted user ${userName} (${userId})`);
-
-            alert('User deleted successfully!');
-            this.loadView('users');
-        } catch (error) {
-            console.error('Delete user error:', error);
-            alert('Failed to delete user.');
-        }
+        await authManager.logActivity(authManager.getUserId(), `admin_${action}_user`, { targetId: userId });
+        this._users(document.getElementById('adminContent'));
     }
 
-    async loadAllAppointmentsContent(container) {
-        const { data: appointments } = await supabase
+    async _deleteUser(userId, name) {
+        if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+
+        // Delete the profile row; the `on delete cascade` on auth.users will clean up
+        // related records. The actual auth login can only be removed from the Supabase
+        // dashboard (Authentication → Users) since deleting from auth.users requires
+        // the service_role key which must not appear in client-side code.
+        const { error } = await supabase.from('profiles').delete().eq('id', userId);
+        if (error) { alert('Error: ' + error.message); return; }
+
+        await authManager.logActivity(authManager.getUserId(), 'admin_delete_user', { targetId: userId, name });
+        alert(`${name} has been removed. To fully delete their login, go to Supabase → Authentication → Users.`);
+        this._users(document.getElementById('adminContent'));
+    }
+
+    // ── ALL APPOINTMENTS ──────────────────────────────────────────────────
+    async _appointments(el) {
+        const { data: apts } = await supabase
             .from('appointments')
-            .select(`
-                *,
-                patient:profiles!appointments_patient_id_fkey (full_name),
-                doctor:profiles!appointments_doctor_id_fkey (full_name)
-            `)
-            .order('scheduled_at', { ascending: false });
+            .select('id,scheduled_at,status,appointment_type,reason,patient:patient_id(full_name),doctor:doctor_id(full_name)')
+            .order('scheduled_at',{ascending:false});
 
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>All Appointments</h2>
+        el.innerHTML = `
+            <div class="page-header"><h2>All Appointments</h2></div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table class="dt">
+                        <thead><tr>
+                            <th>Patient</th><th>Doctor</th><th>Type</th>
+                            <th>Date &amp; Time</th><th>Status</th><th></th>
+                        </tr></thead>
+                        <tbody>
+                        ${(apts||[]).map(a => `
+                            <tr>
+                                <td class="fw-600">${a.patient?.full_name||'—'}</td>
+                                <td>${a.doctor?.full_name||'—'}</td>
+                                <td>${(a.appointment_type||'general').replace('_',' ')}</td>
+                                <td>${new Date(a.scheduled_at).toLocaleString()}</td>
+                                <td><span class="pill pill-${a.status}">${a.status.replace('_',' ')}</span></td>
+                                <td>
+                                    ${a.status==='scheduled'||a.status==='pending_payment' ? `
+                                        <button class="btn btn-sm btn-danger"
+                                            onclick="adminManager._cancelApt('${a.id}')">Cancel</button>` : '—'}
+                                </td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            ${appointments && appointments.length > 0
-                                ? `<table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Patient</th>
-                                            <th>Doctor</th>
-                                            <th>Date & Time</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${appointments.map(apt => `
-                                            <tr>
-                                                <td>${apt.patient.full_name}</td>
-                                                <td>${apt.doctor.full_name}</td>
-                                                <td>${new Date(apt.scheduled_at).toLocaleString()}</td>
-                                                <td><span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">${apt.status}</span></td>
-                                                <td>
-                                                    ${apt.status === 'scheduled' ? `
-                                                        <button class="btn btn-sm btn-danger" onclick="adminManager.cancelAppointment('${apt.id}')">Cancel</button>
-                                                    ` : '-'}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>`
-                                : '<p class="text-muted">No appointments found</p>'
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+            </div>`;
     }
 
-    async cancelAppointment(appointmentId) {
-        if (!confirm('Are you sure you want to cancel this appointment?')) return;
-
-        try {
-            const { error } = await supabase
-                .from('appointments')
-                .update({ status: 'cancelled' })
-                .eq('id', appointmentId);
-
-            if (error) throw error;
-
-            await authManager.logActivity(authManager.getUserId(), 'CANCEL_APPOINTMENT', `Cancelled appointment ${appointmentId}`);
-
-            alert('Appointment cancelled successfully!');
-            this.loadView('appointments');
-        } catch (error) {
-            console.error('Cancel appointment error:', error);
-            alert('Failed to cancel appointment.');
-        }
+    async _cancelApt(id) {
+        if (!confirm('Cancel this appointment?')) return;
+        await supabase.from('appointments').update({status:'cancelled'}).eq('id',id);
+        await authManager.logActivity(authManager.getUserId(), 'admin_cancel_appointment', {appointmentId:id});
+        this._appointments(document.getElementById('adminContent'));
     }
 
-    async loadReportsContent(container) {
-        const { data: appointments } = await supabase
-            .from('appointments')
-            .select('status, scheduled_at');
+    // ── ALL PAYMENTS ──────────────────────────────────────────────────────
+    async _payments(el) {
+        const { data: payments } = await supabase
+            .from('payments')
+            .select('id,amount,currency,status,payment_method,paid_at,created_at,patient:patient_id(full_name),doctor:doctor_id(full_name)')
+            .order('created_at',{ascending:false});
 
-        const { data: patients } = await supabase
-            .from('profiles')
-            .select('created_at')
-            .eq('role', 'patient');
+        const total    = (payments||[]).filter(p=>p.status==='paid').reduce((s,p)=>s+Number(p.amount),0);
+        const pending  = (payments||[]).filter(p=>p.status==='pending').length;
+        const refunded = (payments||[]).filter(p=>p.status==='refunded').reduce((s,p)=>s+Number(p.amount),0);
 
-        const totalAppointments = appointments?.length || 0;
-        const completedAppointments = appointments?.filter(a => a.status === 'completed').length || 0;
-        const cancelledAppointments = appointments?.filter(a => a.status === 'cancelled').length || 0;
-        const scheduledAppointments = appointments?.filter(a => a.status === 'scheduled').length || 0;
-        const totalPatients = patients?.length || 0;
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>System Reports</h2>
-                </div>
+        el.innerHTML = `
+            <div class="page-header"><h2>Payments</h2></div>
+            <div class="stats-grid" style="margin-bottom:20px">
+                ${this._stat('Total Collected','KES '+total.toLocaleString(),'success')}
+                ${this._stat('Pending',pending,'')}
+                ${this._stat('Refunded','KES '+refunded.toLocaleString(),'')}
             </div>
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Appointment Statistics</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label>Total Appointments:</label>
-                                <div class="progress">
-                                    <div class="progress-bar" style="width: 100%">${totalAppointments}</div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label>Completed:</label>
-                                <div class="progress">
-                                    <div class="progress-bar bg-success" style="width: ${totalAppointments ? (completedAppointments/totalAppointments*100) : 0}%">${completedAppointments}</div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label>Scheduled:</label>
-                                <div class="progress">
-                                    <div class="progress-bar bg-primary" style="width: ${totalAppointments ? (scheduledAppointments/totalAppointments*100) : 0}%">${scheduledAppointments}</div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label>Cancelled:</label>
-                                <div class="progress">
-                                    <div class="progress-bar bg-danger" style="width: ${totalAppointments ? (cancelledAppointments/totalAppointments*100) : 0}%">${cancelledAppointments}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table class="dt">
+                        <thead><tr>
+                            <th>Patient</th><th>Doctor</th><th>Amount</th>
+                            <th>Method</th><th>Status</th><th>Date</th>
+                        </tr></thead>
+                        <tbody>
+                        ${(payments||[]).map(p => `
+                            <tr>
+                                <td class="fw-600">${p.patient?.full_name||'—'}</td>
+                                <td>${p.doctor?.full_name||'—'}</td>
+                                <td>${p.currency} ${Number(p.amount).toLocaleString()}</td>
+                                <td style="text-transform:capitalize">${p.payment_method||'—'}</td>
+                                <td><span class="pill pill-${p.status}">${p.status}</span></td>
+                                <td>${p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '—'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">User Statistics</h5>
-                        </div>
-                        <div class="card-body">
-                            <h4>Total Patients: ${totalPatients}</h4>
-                            <p class="text-muted">Registered users in the system</p>
-                            <hr>
-                            <h5>Recent Activity</h5>
-                            <p class="text-muted">System is actively used for telehealth consultations</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+            </div>`;
     }
 
-    async loadLogsContent(container) {
+    // ── REPORTS ───────────────────────────────────────────────────────────
+    async _reports(el) {
+        const [{ data: apts }, { data: patients }, { data: doctors }] = await Promise.all([
+            supabase.from('appointments').select('status,scheduled_at,appointment_type'),
+            supabase.from('profiles').select('gender,date_of_birth').eq('role','patient'),
+            supabase.from('profiles').select('specialty').eq('role','doctor'),
+        ]);
+
+        const total = apts?.length || 0;
+        const counts = { scheduled:0, completed:0, cancelled:0, pending_payment:0, no_show:0 };
+        (apts||[]).forEach(a => { if (counts[a.status]!==undefined) counts[a.status]++; });
+
+        const typeCounts = {};
+        (apts||[]).forEach(a => { typeCounts[a.appointment_type||'general'] = (typeCounts[a.appointment_type||'general']||0)+1; });
+
+        const specialtyCounts = {};
+        (doctors||[]).forEach(d => { const s=d.specialty||'Not specified'; specialtyCounts[s]=(specialtyCounts[s]||0)+1; });
+
+        const genderCounts = {};
+        (patients||[]).forEach(p => { const g=p.gender||'Not specified'; genderCounts[g]=(genderCounts[g]||0)+1; });
+
+        const bar = (label, count, tot, color='var(--primary)') => {
+            const pct = tot > 0 ? Math.round(count/tot*100) : 0;
+            return `<div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                    <span>${label}</span><span class="text-muted">${count} (${pct}%)</span>
+                </div>
+                <div style="background:var(--bg);border-radius:999px;height:8px;overflow:hidden">
+                    <div style="width:${pct}%;background:${color};height:100%;border-radius:999px"></div>
+                </div>
+            </div>`;
+        };
+
+        el.innerHTML = `
+            <div class="page-header"><h2>Reports &amp; Analytics</h2></div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h3>Appointment Status</h3>
+                    ${bar('Scheduled',    counts.scheduled,    total,'var(--primary)')}
+                    ${bar('Completed',    counts.completed,    total,'var(--success)')}
+                    ${bar('Cancelled',    counts.cancelled,    total,'var(--danger)')}
+                    ${bar('No-show',      counts.no_show,      total,'var(--warning)')}
+                    ${bar('Pending Pay.', counts.pending_payment, total,'#f59e0b')}
+                </div>
+                <div class="card">
+                    <h3>Appointment Types</h3>
+                    ${Object.entries(typeCounts).map(([l,c])=>bar(l.replace('_',' '),c,total)).join('')}
+                </div>
+                <div class="card">
+                    <h3>Doctor Specialties</h3>
+                    ${Object.entries(specialtyCounts).map(([l,c])=>bar(l,c,doctors?.length||1)).join('')}
+                </div>
+                <div class="card">
+                    <h3>Patient Gender</h3>
+                    ${Object.entries(genderCounts).map(([l,c])=>bar(l,c,patients?.length||1,'var(--success)')).join('')}
+                </div>
+            </div>`;
+    }
+
+    // ── ACTIVITY LOGS ─────────────────────────────────────────────────────
+    async _logs(el) {
         const { data: logs } = await supabase
             .from('activity_logs')
-            .select(`
-                *,
-                user:profiles!activity_logs_user_id_fkey (full_name, email, role)
-            `)
-            .order('timestamp', { ascending: false })
-            .limit(50);
+            .select('id,action,details,created_at,user:user_id(full_name,role)')
+            .order('created_at',{ascending:false})
+            .limit(100);
 
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>Activity Logs</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            ${logs && logs.length > 0
-                                ? `<table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>User</th>
-                                            <th>Action</th>
-                                            <th>Details</th>
-                                            <th>Timestamp</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${logs.map(log => `
-                                            <tr>
-                                                <td>${log.user?.full_name || 'Unknown'} (${log.user?.role || '-'})</td>
-                                                <td><span class="badge bg-secondary">${log.action}</span></td>
-                                                <td>${log.details}</td>
-                                                <td>${new Date(log.timestamp).toLocaleString()}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>`
-                                : '<p class="text-muted">No activity logs found</p>'
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
+        const ACTION_LABELS = {
+            login:'Logged in', logout:'Logged out', register:'Registered',
+            appointment_booked:'Booked appointment', payment_completed:'Payment completed',
+            admin_activate_user:'Activated user', admin_disable_user:'Disabled user',
+            admin_delete_user:'Deleted user', admin_cancel_appointment:'Cancelled appointment',
+        };
 
-    editUser(userId) {
-        alert('Edit functionality - Implement user profile editing modal');
+        el.innerHTML = `
+            <div class="page-header">
+                <h2>Activity Logs</h2>
+                <p class="text-muted">Last 100 events</p>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table class="dt">
+                        <thead><tr><th>User</th><th>Role</th><th>Action</th><th>Date &amp; Time</th></tr></thead>
+                        <tbody>
+                        ${(logs||[]).map(l => `
+                            <tr>
+                                <td class="fw-600">${l.user?.full_name||'Unknown'}</td>
+                                <td style="text-transform:capitalize">${l.user?.role||'—'}</td>
+                                <td>${ACTION_LABELS[l.action]||l.action}</td>
+                                <td>${new Date(l.created_at).toLocaleString()}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
     }
 }
 
-// Initialize admin manager
 const adminManager = new AdminManager();
+window.adminManager = adminManager;
+console.log('✅ AdminManager loaded');
