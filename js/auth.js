@@ -2,18 +2,16 @@
  * File: auth.js
  * Purpose: Authentication, registration, session management, routing
  *
- * CHANGES: Admin registration re-enabled with additional security
- * - Admins can now register via the registration form
- * - Only the first admin registration creates an admin
- * - Additional admin registrations require approval/verification
- * - Admin accounts are created with is_active = true by default
+ * CHANGES: Multiple admin registration now allowed
+ * - Removed the "only one admin" restriction
+ * - All admin accounts are created with is_active = true
+ * - Admin registration now works like any other role
  */
 
 class AuthManager {
     constructor() {
         this.currentUser  = null;
         this.userProfile  = null;
-        this.isFirstAdmin = false;
     }
 
     // ── Called once on DOMContentLoaded by app.js ─────────────────────────
@@ -69,16 +67,6 @@ class AuthManager {
         }
     }
 
-    // ── Check if admin already exists ────────────────────────────────────
-    async checkAdminExists() {
-        const { data, count } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'admin');
-        
-        return count > 0;
-    }
-
     // ── LOGIN ─────────────────────────────────────────────────────────────
     async login(email, password) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -108,25 +96,8 @@ class AuthManager {
     }
 
     // ── REGISTER ──────────────────────────────────────────────────────────
-    // Now allows 'admin' registration with additional checks
+    // Now allows multiple admin registrations
     async register(email, password, fullName, role, phone = '', specialty = '') {
-
-        // Admin registration - check if admin already exists
-        if (role === 'admin') {
-            const adminExists = await this.checkAdminExists();
-            
-            // If admin already exists, prevent registration
-            if (adminExists) {
-                return { 
-                    success: false, 
-                    message: '❌ An administrator already exists. Only one admin account is allowed. Please contact the existing admin for access.' 
-                };
-            }
-            
-            // First admin registration - allow it
-            console.log('👑 First admin registration detected!');
-            this.isFirstAdmin = true;
-        }
 
         // Validate role
         if (!['patient', 'doctor', 'admin'].includes(role)) {
@@ -349,13 +320,6 @@ class AuthManager {
                                 </select>
                             </div>
                         </div>
-                        <div id="adminFields" style="display:none">
-                            <div class="alert alert-warning" style="margin-bottom:12px">
-                                <strong>⚠️ Admin Registration</strong><br>
-                                Only one admin account is allowed in the system.
-                                If an admin already exists, you cannot register as admin.
-                            </div>
-                        </div>
                         <div class="field">
                             <label>Phone number</label>
                             <input type="tel" id="regPhone" class="input" placeholder="+254 7XX XXX XXX">
@@ -374,29 +338,16 @@ class AuthManager {
             document.getElementById('doctorFields').style.display = 
                 role === 'doctor' ? 'block' : 'none';
             
-            const adminFields = document.getElementById('adminFields');
+            // Clear any previous messages
+            const msg = document.getElementById('regMsg');
             if (role === 'admin') {
-                adminFields.style.display = 'block';
-                // Check if admin already exists
-                const adminExists = await this.checkAdminExists();
-                const msg = document.getElementById('regMsg');
-                if (adminExists) {
-                    msg.innerHTML = `
-                        <div class="alert alert-warning">
-                            ⚠️ An administrator already exists in the system.
-                            Only one admin account is allowed.
-                            Please contact the existing admin for access.
-                        </div>
-                    `;
-                } else {
-                    msg.innerHTML = `
-                        <div class="alert alert-success">
-                            ✅ No admin exists yet. You can register as the first administrator!
-                        </div>
-                    `;
-                }
+                msg.innerHTML = `
+                    <div class="alert alert-info">
+                        ℹ️ Admin accounts have full system access. Multiple admins are allowed.
+                    </div>
+                `;
             } else {
-                adminFields.style.display = 'none';
+                msg.innerHTML = '';
             }
         });
 
@@ -499,4 +450,4 @@ class AuthManager {
 
 const authManager = new AuthManager();
 window.authManager = authManager;
-console.log('✅ AuthManager loaded (admin registration enabled)');
+console.log('✅ AuthManager loaded (multiple admins allowed)');
