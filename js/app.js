@@ -1,140 +1,430 @@
 /*
  * File: app.js
- * Purpose: Main application entry point and initialization
- * Dependencies: All other JS modules
- * Fits in: Application initialization layer
+ * Purpose: Main application entry with unified layout
  */
 
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Telehealth Communication System initializing...');
-    
-    try {
-        const config = window.SUPABASE_CONFIG || (typeof SUPABASE_CONFIG !== 'undefined' ? SUPABASE_CONFIG : null);
-
-        if (!config) {
-            showError('Configuration not loaded. Ensure js/config.js is present and reload the page.');
-            return;
-        }
-
-        if (typeof supabase === 'undefined' || !supabase?.auth) {
-            showError('Supabase client failed to initialize. Check js/config.js credentials and refresh the page.');
-            return;
-        }
-
-        if (isUnconfigured(config)) {
-            showConfigurationWarning();
-            return;
-        }
-
-        console.log('Supabase configured successfully');
-        
-        // Check if authManager exists
-        if (typeof authManager === 'undefined') {
-            console.error('AuthManager not loaded!');
-            showError('Failed to load authentication module. Please refresh the page.');
-            return;
-        }
-
-        // Initialize the application
-        initializeApp();
-    } catch (error) {
-        console.error('Initialization error:', error);
-        showError('Failed to initialize application: ' + error.message);
+class App {
+    constructor() {
+        this.currentRole = null;
+        this.currentView = 'dashboard';
+        this.isSidebarOpen = window.innerWidth > 992;
+        this.isSidebarCollapsed = false;
+        this.navItems = [];
+        this.contentContainer = null;
+        this.sidebar = null;
+        this.init();
     }
-});
 
-function isUnconfigured(config) {
-    return !config.url || !config.anonKey ||
-        config.url.includes('YOUR_SUPABASE') ||
-        config.anonKey.includes('YOUR_SUPABASE') ||
-        config.url === 'https://your-project.supabase.co';
-}
-
-function showConfigurationWarning() {
-    const app = document.getElementById('app');
-    app.innerHTML = `
-        <div class="container mt-5">
-            <div class="alert alert-warning">
-                <h4 class="alert-heading">⚠️ Configuration Required</h4>
-                <p>Please configure your Supabase credentials before using the application.</p>
-                <hr>
-                <p>Open <code>js/config.js</code> and replace the placeholder values:</p>
-                <ul>
-                    <li><code>YOUR_SUPABASE_PROJECT_URL</code> with your Supabase project URL</li>
-                    <li><code>YOUR_SUPABASE_ANON_KEY</code> with your Supabase anonymous key</li>
-                </ul>
-                <p>You can find these in your Supabase dashboard under Project Settings > API</p>
-                <hr>
-                <p class="mb-0">After configuring, refresh this page to continue.</p>
-            </div>
-        </div>
-    `;
-}
-
-function showError(message) {
-    const app = document.getElementById('app');
-    app.innerHTML = `
-        <div class="container mt-5">
-            <div class="alert alert-danger">
-                <h4 class="alert-heading">❌ Error</h4>
-                <p>${message}</p>
-                <hr>
-                <p class="mb-0">Please check the browser console (F12) for more details.</p>
-            </div>
-        </div>
-    `;
-}
-
-async function initializeApp() {
-    try {
-        console.log('Initializing app...');
+    init() {
+        console.log('🚀 App initializing...');
         
-        // Check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Session:', session ? 'Found' : 'None');
-        
-        if (session) {
-            console.log('User already logged in, loading profile...');
-            // Auth manager will handle routing based on role
-            await authManager.loadUserProfile();
-        } else {
-            console.log('No active session, showing login page...');
+        // Wait for auth to be ready
+        this.waitForAuth();
+    }
+
+    waitForAuth() {
+        const checkAuth = () => {
+            if (authManager && authManager.currentUser) {
+                console.log('✅ Auth ready, rendering layout...');
+                this.renderLayout();
+            } else if (authManager && !authManager.currentUser) {
+                console.log('⏳ No user, showing login...');
+                // Auth will handle login page
+            } else {
+                console.log('⏳ Waiting for auth...');
+                setTimeout(checkAuth, 200);
+            }
+        };
+        checkAuth();
+    }
+
+    renderLayout() {
+        const profile = authManager.getUserProfile();
+        if (!profile) {
             authManager.showLoginPage();
+            return;
         }
-    } catch (error) {
-        console.error('Initialization error:', error);
-        showError('Failed to initialize application: ' + error.message);
+
+        this.currentRole = profile.role;
+        this.navItems = this.getNavItems(profile.role);
+        
+        const app = document.getElementById('app');
+        app.innerHTML = this.getLayoutHTML(profile);
+        
+        this.contentContainer = document.getElementById('app-content');
+        this.sidebar = document.getElementById('app-sidebar');
+        
+        this.attachEvents();
+        this.loadView('dashboard');
+    }
+
+    getNavItems(role) {
+        const common = [
+            { id: 'dashboard', icon: '🏠', label: 'Dashboard' }
+        ];
+
+        const roleSpecific = {
+            admin: [
+                { id: 'users', icon: '👥', label: 'Users' },
+                { id: 'appointments', icon: '📅', label: 'Appointments' },
+                { id: 'payments', icon: '💰', label: 'Payments' },
+                { id: 'reports', icon: '📊', label: 'Reports' },
+                { id: 'logs', icon: '📋', label: 'Activity Logs' }
+            ],
+            doctor: [
+                { id: 'appointments', icon: '📅', label: 'Appointments' },
+                { id: 'patients', icon: '👥', label: 'Patients' },
+                { id: 'chat', icon: '💬', label: 'Messages' },
+                { id: 'profile', icon: '⚙️', label: 'Profile' }
+            ],
+            patient: [
+                { id: 'appointments', icon: '📅', label: 'My Appointments' },
+                { id: 'doctors', icon: '👨‍⚕️', label: 'Find Doctors' },
+                { id: 'chat', icon: '💬', label: 'Messages' },
+                { id: 'profile', icon: '⚙️', label: 'Profile' }
+            ]
+        };
+
+        return [...common, ...(roleSpecific[role] || [])];
+    }
+
+    getLayoutHTML(profile) {
+        const roleColors = {
+            admin: '#7C3AED',
+            doctor: '#2563EB',
+            patient: '#10B981'
+        };
+        const color = roleColors[this.currentRole] || '#2563EB';
+        const initial = profile.full_name?.charAt(0)?.toUpperCase() || 'U';
+        const roleLabel = this.currentRole.charAt(0).toUpperCase() + this.currentRole.slice(1);
+
+        const navHTML = this.navItems.map(item => `
+            <button class="nav-item" data-view="${item.id}">
+                <span class="nav-icon">${item.icon}</span>
+                <span class="nav-label">${item.label}</span>
+            </button>
+        `).join('');
+
+        return `
+            <div class="app-layout">
+                <!-- Sidebar Overlay (mobile) -->
+                <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+                <!-- Sidebar -->
+                <aside class="sidebar" id="app-sidebar">
+                    <div class="sidebar-header">
+                        <a href="#" class="brand" onclick="app.loadView('dashboard'); return false;">
+                            <div class="brand-icon">TH</div>
+                            <span class="brand-text">TeleHealth</span>
+                        </a>
+                        <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    </div>
+                    <nav class="sidebar-nav">
+                        <div class="nav-section">
+                            <div class="nav-section-title">Main Menu</div>
+                            ${navHTML}
+                        </div>
+                    </nav>
+                    <div class="sidebar-footer">
+                        <button class="nav-item" id="logoutBtn">
+                            <span class="nav-icon">🚪</span>
+                            <span class="nav-label">Logout</span>
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="main-content" id="mainContent">
+                    <!-- Top Header -->
+                    <header class="top-header">
+                        <div class="header-left">
+                            <button class="hamburger" id="hamburgerBtn">
+                                <i class="fas fa-bars"></i>
+                            </button>
+                            <span class="page-title" id="pageTitle">Dashboard</span>
+                        </div>
+                        <div class="header-right">
+                            <button class="notification-btn" id="notificationBtn" title="Notifications">
+                                <i class="fas fa-bell"></i>
+                                <span class="badge-dot"></span>
+                            </button>
+                            <div class="user-profile">
+                                <div class="avatar" style="background:${color};">${initial}</div>
+                                <div class="user-info">
+                                    <span class="name">${profile.full_name}</span>
+                                    <span class="role">${roleLabel}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Content -->
+                    <div class="content-area" id="app-content">
+                        <!-- Dynamic content will be loaded here -->
+                    </div>
+                </main>
+            </div>
+        `;
+    }
+
+    attachEvents() {
+        // Sidebar toggle (desktop)
+        const toggleBtn = document.getElementById('sidebarToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
+
+        // Hamburger (mobile)
+        const hamburger = document.getElementById('hamburgerBtn');
+        if (hamburger) {
+            hamburger.addEventListener('click', () => {
+                this.toggleMobileSidebar();
+            });
+        }
+
+        // Sidebar overlay (mobile)
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                this.closeMobileSidebar();
+            });
+        }
+
+        // Navigation items
+        document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const view = item.dataset.view;
+                this.loadView(view);
+                this.closeMobileSidebar();
+            });
+        });
+
+        // Logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const result = await authManager.logout();
+                if (result.success) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        // Notification
+        const notifBtn = document.getElementById('notificationBtn');
+        if (notifBtn) {
+            notifBtn.addEventListener('click', () => {
+                alert('🔔 Notifications coming soon!');
+            });
+        }
+
+        // Keyboard shortcut: Ctrl+B to toggle sidebar
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                if (window.innerWidth > 992) {
+                    this.toggleSidebar();
+                } else {
+                    this.toggleMobileSidebar();
+                }
+            }
+        });
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 992) {
+                document.getElementById('sidebarOverlay')?.classList.remove('active');
+                document.querySelector('.sidebar')?.classList.remove('open');
+            }
+        });
+
+        // Update active nav item
+        this.updateActiveNav('dashboard');
+    }
+
+    toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.getElementById('mainContent');
+        
+        if (window.innerWidth > 992) {
+            this.isSidebarCollapsed = !this.isSidebarCollapsed;
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            const icon = document.getElementById('sidebarToggle')?.querySelector('i');
+            if (icon) {
+                icon.className = this.isSidebarCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+            }
+        }
+    }
+
+    toggleMobileSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+    }
+
+    closeMobileSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+    }
+
+    updateActiveNav(view) {
+        document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
+            item.classList.toggle('active', item.dataset.view === view);
+        });
+        
+        const title = document.getElementById('pageTitle');
+        const navItem = this.navItems.find(n => n.id === view);
+        if (title && navItem) {
+            title.textContent = navItem.label;
+        }
+    }
+
+    async loadView(view) {
+        this.currentView = view;
+        this.updateActiveNav(view);
+
+        const content = document.getElementById('app-content');
+        if (!content) return;
+
+        // Show loading
+        content.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2">Loading...</p>
+            </div>
+        `;
+
+        // Route to appropriate handler
+        const role = this.currentRole;
+        let result = null;
+
+        // Use setTimeout to allow the loading message to render
+        setTimeout(async () => {
+            switch(role) {
+                case 'admin':
+                    result = await this.handleAdminView(view);
+                    break;
+                case 'doctor':
+                    result = await this.handleDoctorView(view);
+                    break;
+                case 'patient':
+                    result = await this.handlePatientView(view);
+                    break;
+                default:
+                    content.innerHTML = `<p class="text-danger">Unknown role: ${role}</p>`;
+                    return;
+            }
+
+            if (result) {
+                content.innerHTML = result;
+            }
+        }, 100);
+    }
+
+    async handleAdminView(view) {
+        if (typeof adminManager === 'undefined' || !adminManager) {
+            return `<p class="text-danger">Admin manager not loaded. Please refresh.</p>`;
+        }
+
+        const views = {
+            dashboard: () => adminManager._dashboard,
+            users: () => adminManager._users,
+            appointments: () => adminManager._appointments,
+            payments: () => adminManager._payments,
+            reports: () => adminManager._reports,
+            logs: () => adminManager._logs
+        };
+
+        const handler = views[view];
+        if (!handler) return `<p class="text-warning">View "${view}" not found.</p>`;
+
+        try {
+            const container = document.createElement('div');
+            await handler().call(adminManager, container);
+            return container.innerHTML;
+        } catch (error) {
+            console.error('Admin view error:', error);
+            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
+        }
+    }
+
+    async handleDoctorView(view) {
+        if (typeof doctorManager === 'undefined' || !doctorManager) {
+            return `<p class="text-danger">Doctor manager not loaded. Please refresh.</p>`;
+        }
+
+        const views = {
+            dashboard: () => doctorManager.loadDashboardContent,
+            appointments: () => doctorManager.loadAppointmentsContent,
+            patients: () => doctorManager.loadPatientsContent,
+            chat: () => doctorManager.openChat,
+            profile: () => doctorManager.loadProfileContent
+        };
+
+        const handler = views[view];
+        if (!handler) return `<p class="text-warning">View "${view}" not found.</p>`;
+
+        try {
+            const container = document.createElement('div');
+            if (view === 'chat') {
+                handler().call(doctorManager);
+                return `<div id="chatContainer"><p>💬 Chat interface loading...</p></div>`;
+            }
+            await handler().call(doctorManager, container);
+            return container.innerHTML;
+        } catch (error) {
+            console.error('Doctor view error:', error);
+            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
+        }
+    }
+
+    async handlePatientView(view) {
+        if (typeof patientManager === 'undefined' || !patientManager) {
+            return `<p class="text-danger">Patient manager not loaded. Please refresh.</p>`;
+        }
+
+        const views = {
+            dashboard: () => patientManager.loadDashboardContent,
+            appointments: () => patientManager.loadAppointmentsContent,
+            doctors: () => patientManager.loadDoctorsContent,
+            chat: () => patientManager.openChat,
+            profile: () => patientManager.loadProfileContent
+        };
+
+        const handler = views[view];
+        if (!handler) return `<p class="text-warning">View "${view}" not found.</p>`;
+
+        try {
+            const container = document.createElement('div');
+            if (view === 'chat') {
+                handler().call(patientManager);
+                return `<div id="chatContainer"><p>💬 Chat interface loading...</p></div>`;
+            }
+            await handler().call(patientManager, container);
+            return container.innerHTML;
+        } catch (error) {
+            console.error('Patient view error:', error);
+            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
+        }
     }
 }
 
-// Global error handler
-window.addEventListener('error', (event) => {
-    console.error('Global error:', event.error || event.message);
-    const app = document.getElementById('app');
-    if (app && !app.innerHTML.trim()) {
-        showError('An error occurred: ' + (event.error?.message || event.message || 'Unknown error'));
-    }
-});
-
-// Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', (event) => {
-    console.error('Unhandled promise rejection:', event.reason);
-    const app = document.getElementById('app');
-    if (app && !app.innerHTML.trim()) {
-        showError('An error occurred: ' + (event.reason?.message || 'Unknown error'));
-    }
-});
-
-// Export for debugging
-if (typeof window !== 'undefined') {
-    window.TelehealthApp = {
-        authManager: typeof authManager !== 'undefined' ? authManager : null,
-        patientManager: typeof patientManager !== 'undefined' ? patientManager : null,
-        doctorManager: typeof doctorManager !== 'undefined' ? doctorManager : null,
-        adminManager: typeof adminManager !== 'undefined' ? adminManager : null,
-        chatManager: typeof chatManager !== 'undefined' ? chatManager : null,
-        videoManager: typeof videoManager !== 'undefined' ? videoManager : null,
-        supabase: typeof supabase !== 'undefined' ? supabase : null
-    };
-}
+// Initialize app
+const app = new App();
+window.app = app;
+console.log('✅ App initialized');
