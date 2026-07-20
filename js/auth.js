@@ -199,7 +199,6 @@ class AuthManager {
             </div>
         `;
 
-        // Login form handler
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
@@ -222,13 +221,11 @@ class AuthManager {
             }
         });
 
-        // Register link
         document.getElementById('showRegister')?.addEventListener('click', (e) => {
             e.preventDefault();
             this.showRegisterPage();
         });
 
-        // Forgot password
         document.getElementById('showForgotPassword')?.addEventListener('click', async (e) => {
             e.preventDefault();
             const email = prompt('Enter your email address:');
@@ -375,7 +372,6 @@ class AuthManager {
     }
 }
 
-// Initialize auth manager
 const authManager = new AuthManager();
 window.authManager = authManager;
 console.log('AuthManager initialized');

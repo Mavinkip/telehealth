@@ -1,6 +1,6 @@
 /*
  * File: app.js
- * Purpose: Main application with sidebar layout - FIXED for mobile
+ * Purpose: Main application with sidebar layout
  */
 
 class App {
@@ -8,24 +8,25 @@ class App {
         this.currentRole = null;
         this.currentView = 'dashboard';
         this.isSidebarCollapsed = false;
+        this.isMobileSidebarOpen = false;
         this.navItems = [];
         this.init();
     }
 
     init() {
-        console.log('🚀 App initializing...');
+        console.log('App initializing...');
         this.waitForAuth();
     }
 
     waitForAuth() {
         const checkAuth = () => {
             if (authManager && authManager.currentUser) {
-                console.log('✅ Auth ready, rendering layout...');
+                console.log('Auth ready, rendering layout...');
                 this.renderLayout();
             } else if (authManager && !authManager.currentUser) {
-                console.log('⏳ No user, auth.js will handle login');
+                console.log('No user, auth.js will handle login');
             } else {
-                console.log('⏳ Waiting for auth...');
+                console.log('Waiting for auth...');
                 setTimeout(checkAuth, 200);
             }
         };
@@ -53,28 +54,28 @@ class App {
 
     getNavItems(role) {
         const common = [
-            { id: 'dashboard', icon: '🏠', label: 'Dashboard' }
+            { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' }
         ];
 
         const roleSpecific = {
             admin: [
-                { id: 'users', icon: '👥', label: 'Users' },
-                { id: 'appointments', icon: '📅', label: 'Appointments' },
-                { id: 'payments', icon: '💰', label: 'Payments' },
-                { id: 'reports', icon: '📊', label: 'Reports' },
-                { id: 'logs', icon: '📋', label: 'Activity Logs' }
+                { id: 'users', icon: 'fas fa-users', label: 'Users' },
+                { id: 'appointments', icon: 'fas fa-calendar-check', label: 'Appointments' },
+                { id: 'payments', icon: 'fas fa-credit-card', label: 'Payments' },
+                { id: 'reports', icon: 'fas fa-chart-bar', label: 'Reports' },
+                { id: 'logs', icon: 'fas fa-clipboard-list', label: 'Activity Logs' }
             ],
             doctor: [
-                { id: 'appointments', icon: '📅', label: 'Appointments' },
-                { id: 'patients', icon: '👥', label: 'Patients' },
-                { id: 'chat', icon: '💬', label: 'Messages' },
-                { id: 'profile', icon: '⚙️', label: 'Profile' }
+                { id: 'appointments', icon: 'fas fa-calendar-check', label: 'Appointments' },
+                { id: 'patients', icon: 'fas fa-user-injured', label: 'Patients' },
+                { id: 'chat', icon: 'fas fa-comment-dots', label: 'Messages' },
+                { id: 'profile', icon: 'fas fa-user-cog', label: 'Profile' }
             ],
             patient: [
-                { id: 'appointments', icon: '📅', label: 'My Appointments' },
-                { id: 'doctors', icon: '👨‍⚕️', label: 'Find Doctors' },
-                { id: 'chat', icon: '💬', label: 'Messages' },
-                { id: 'profile', icon: '⚙️', label: 'Profile' }
+                { id: 'appointments', icon: 'fas fa-calendar-check', label: 'My Appointments' },
+                { id: 'doctors', icon: 'fas fa-user-md', label: 'Find Doctors' },
+                { id: 'chat', icon: 'fas fa-comment-dots', label: 'Messages' },
+                { id: 'profile', icon: 'fas fa-user-cog', label: 'Profile' }
             ]
         };
 
@@ -93,17 +94,15 @@ class App {
 
         const navHTML = this.navItems.map(item => `
             <button class="nav-item" data-view="${item.id}">
-                <span class="nav-icon">${item.icon}</span>
+                <span class="nav-icon"><i class="${item.icon}"></i></span>
                 <span class="nav-label">${item.label}</span>
             </button>
         `).join('');
 
         return `
             <div class="app-layout">
-                <!-- Sidebar Overlay (mobile) -->
                 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-                <!-- Sidebar -->
                 <aside class="sidebar" id="app-sidebar">
                     <div class="sidebar-header">
                         <a href="#" class="brand" onclick="app.loadView('dashboard'); return false;">
@@ -120,13 +119,12 @@ class App {
                     </nav>
                     <div class="sidebar-footer">
                         <button class="nav-item" id="logoutBtnSidebar">
-                            <span class="nav-icon">🚪</span>
+                            <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
                             <span class="nav-label">Logout</span>
                         </button>
                     </div>
                 </aside>
 
-                <!-- Main Content -->
                 <main class="main-content" id="mainContent">
                     <header class="top-header">
                         <div class="header-left">
@@ -147,7 +145,6 @@ class App {
                                     <span class="role">${roleLabel}</span>
                                 </div>
                             </div>
-                            <!-- Logout button in header (visible on all devices) -->
                             <button class="btn btn-sm btn-danger header-logout-btn" id="logoutBtnHeader">
                                 <i class="fas fa-sign-out-alt"></i>
                             </button>
@@ -167,15 +164,14 @@ class App {
     }
 
     attachEvents() {
-        // Sidebar toggle (desktop)
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 this.toggleSidebar();
             });
         }
 
-        // Hamburger (mobile)
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', (e) => {
@@ -184,7 +180,6 @@ class App {
             });
         }
 
-        // Sidebar overlay (mobile)
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -192,7 +187,6 @@ class App {
             });
         }
 
-        // Navigation items - close mobile sidebar after click
         document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
             item.addEventListener('click', () => {
                 const view = item.dataset.view;
@@ -201,7 +195,6 @@ class App {
             });
         });
 
-        // Logout from sidebar
         const logoutBtnSidebar = document.getElementById('logoutBtnSidebar');
         if (logoutBtnSidebar) {
             logoutBtnSidebar.addEventListener('click', async () => {
@@ -209,7 +202,6 @@ class App {
             });
         }
 
-        // Logout from header - NEW
         const logoutBtnHeader = document.getElementById('logoutBtnHeader');
         if (logoutBtnHeader) {
             logoutBtnHeader.addEventListener('click', async () => {
@@ -217,47 +209,24 @@ class App {
             });
         }
 
-        // Notification
         const notifBtn = document.getElementById('notificationBtn');
         if (notifBtn) {
             notifBtn.addEventListener('click', () => {
-                alert('🔔 Notifications coming soon!');
+                alert('Notifications coming soon!');
             });
         }
 
-        // Keyboard shortcut: Ctrl+B
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'b') {
-                e.preventDefault();
-                if (window.innerWidth > 992) {
-                    this.toggleSidebar();
-                } else {
-                    this.toggleMobileSidebar();
-                }
-            }
-        });
-
-        // Window resize
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
                 this.closeMobileSidebar();
-                document.getElementById('sidebarOverlay')?.classList.remove('active');
-                document.querySelector('.sidebar')?.classList.remove('open');
             }
         });
 
         this.updateActiveNav('dashboard');
     }
 
-    async handleLogout() {
-        const result = await authManager.logout();
-        if (result.success) {
-            window.location.reload();
-        }
-    }
-
     toggleSidebar() {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.getElementById('app-sidebar');
         const mainContent = document.getElementById('mainContent');
         
         if (window.innerWidth > 992) {
@@ -273,11 +242,12 @@ class App {
     }
 
     toggleMobileSidebar() {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.getElementById('app-sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
         if (sidebar) {
             sidebar.classList.toggle('open');
+            this.isMobileSidebarOpen = sidebar.classList.contains('open');
         }
         if (overlay) {
             overlay.classList.toggle('active');
@@ -285,11 +255,12 @@ class App {
     }
 
     closeMobileSidebar() {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.getElementById('app-sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
         if (sidebar) {
             sidebar.classList.remove('open');
+            this.isMobileSidebarOpen = false;
         }
         if (overlay) {
             overlay.classList.remove('active');
@@ -391,7 +362,7 @@ class App {
             const container = document.createElement('div');
             if (view === 'chat') {
                 handler().call(doctorManager);
-                return `<div id="chatContainer"><p>💬 Chat interface loading...</p></div>`;
+                return `<div id="chatContainer"><p>Chat interface loading...</p></div>`;
             }
             await handler().call(doctorManager, container);
             return container.innerHTML;
@@ -418,7 +389,7 @@ class App {
             const container = document.createElement('div');
             if (view === 'chat') {
                 handler().call(patientManager);
-                return `<div id="chatContainer"><p>💬 Chat interface loading...</p></div>`;
+                return `<div id="chatContainer"><p>Chat interface loading...</p></div>`;
             }
             await handler().call(patientManager, container);
             return container.innerHTML;
@@ -426,9 +397,15 @@ class App {
             return `<p class="text-danger">Error: ${error.message}</p>`;
         }
     }
+
+    async handleLogout() {
+        const result = await authManager.logout();
+        if (result.success) {
+            window.location.reload();
+        }
+    }
 }
 
-// Initialize app
 const app = new App();
 window.app = app;
-console.log('✅ App initialized');
+console.log('App initialized');

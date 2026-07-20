@@ -1,12 +1,10 @@
 /*
  * File: admin.js
- * Purpose: Admin portal — user management, appointments, payments, reports, logs
- * NOTE: The navbar/layout is now handled by app.js
+ * Purpose: Admin portal - user management, appointments, payments, reports, logs
  */
 
 class AdminManager {
 
-    // ── DASHBOARD ─────────────────────────────────────────────────────────
     async _dashboard(el) {
         const [{ count: patients }, { count: activeDoctors }, { data: allDoctors }, { count: appts },
                { data: revenue }] = await Promise.all([
@@ -27,10 +25,10 @@ class AdminManager {
             </div>
             ${pendingDoctors > 0 ? `
                 <div class="alert alert-warning">
-                    <span>⚠️ <strong>${pendingDoctors}</strong> doctor${pendingDoctors>1?'s':''} awaiting activation</span>
+                    <span><strong>${pendingDoctors}</strong> doctor${pendingDoctors>1?'s':''} awaiting activation</span>
                     <button class="btn btn-sm btn-primary" onclick="app.loadView('users')">Review now</button>
                 </div>` : `
-                <div class="alert alert-success">✅ All doctors are activated</div>`}
+                <div class="alert alert-success">All doctors are activated</div>`}
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-label">Active Patients</div><div class="stat-value accent">${patients||0}</div></div>
                 <div class="stat-card"><div class="stat-label">Active Doctors</div><div class="stat-value">${activeDoctors||0}</div></div>
@@ -54,7 +52,6 @@ class AdminManager {
                  payments:'Payments', reports:'Reports', logs:'Logs' }[v] || v;
     }
 
-    // ── USERS ─────────────────────────────────────────────────────────────
     async _users(el) {
         const { data: users } = await supabase
             .from('profiles')
@@ -83,12 +80,12 @@ class AdminManager {
             ${pendingDoctors.length > 0 ? `
             <div class="card mb-4" style="border:2px solid #FCD34D;background:#FFFBEB;">
                 <div class="card-header" style="background:#FEF3C7;">
-                    <span class="card-title">⏳ Pending Activation (${pendingDoctors.length})</span>
+                    <span class="card-title">Pending Activation (${pendingDoctors.length})</span>
                     <span style="font-size:0.8rem;color:#92400E;">Click "Activate" to approve</span>
                 </div>
                 ${this._userTable(pendingDoctors, true, true)}
             </div>` : `
-            <div class="alert alert-success">✅ All doctors are activated! No pending approvals.</div>`}
+            <div class="alert alert-success">All doctors are activated! No pending approvals.</div>`}
 
             <div class="card mb-4">
                 <div class="card-header"><span class="card-title">Active Doctors (${activeDoctors.length})</span></div>
@@ -117,26 +114,29 @@ class AdminManager {
         <div class="table-wrap">
             <table>
                 <thead><tr>
-                    <th>Name</th><th>Email</th>
+                    <th>Name</th>
+                    <th>Email</th>
                     ${showSpecialty ? '<th>Specialty</th>' : ''}
-                    <th>Status</th><th>Joined</th><th>Actions</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
                 </tr></thead>
                 <tbody>
                     ${users.map(u => `
                     <tr style="${isPending ? 'background:#FFFBEB;' : ''}">
-                        <td><strong>${u.full_name} ${isPending ? '⭐' : ''}</strong></td>
+                        <td><strong>${u.full_name}</strong></td>
                         <td>${u.email}</td>
                         ${showSpecialty ? `<td>${u.specialty||'—'}</td>` : ''}
-                        <td><span class="pill ${u.is_active ? 'pill-active' : 'pill-disabled'}">${u.is_active ? '✅ Active' : '⏳ Pending'}</span></td>
+                        <td><span class="pill ${u.is_active ? 'pill-active' : 'pill-disabled'}">${u.is_active ? 'Active' : 'Pending'}</span></td>
                         <td>${new Date(u.created_at).toLocaleDateString()}</td>
                         <td style="white-space:nowrap;">
                             ${!isAdmin ? `
                                 ${!u.is_active ? `
-                                    <button class="btn btn-sm btn-success" onclick="adminManager._toggleActive('${u.id}',false)">✅ Activate</button>
+                                    <button class="btn btn-sm btn-success" onclick="adminManager._toggleActive('${u.id}',false)">Activate</button>
                                 ` : `
-                                    <button class="btn btn-sm btn-secondary" onclick="adminManager._toggleActive('${u.id}',true)">⛔ Disable</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="adminManager._toggleActive('${u.id}',true)">Disable</button>
                                 `}
-                                <button class="btn btn-sm btn-danger" onclick="adminManager._deleteUser('${u.id}','${u.full_name}')">🗑️ Delete</button>
+                                <button class="btn btn-sm btn-danger" onclick="adminManager._deleteUser('${u.id}','${u.full_name}')">Delete</button>
                             ` : '<span class="text-muted">—</span>'}
                         </td>
                     </tr>`).join('')}
@@ -151,7 +151,7 @@ class AdminManager {
 
         try {
             await supabase.from('profiles').update({ is_active: newState }).eq('id', userId);
-            alert(newState ? '✅ Doctor activated!' : '⛔ Account disabled.');
+            alert(newState ? 'Doctor activated!' : 'Account disabled.');
             app.loadView('users');
         } catch (error) {
             alert('Error: ' + error.message);
@@ -159,7 +159,7 @@ class AdminManager {
     }
 
     async _deleteUser(userId, name) {
-        if (!confirm(`⚠️ Permanently delete ${name}?`)) return;
+        if (!confirm(`Permanently delete ${name}?`)) return;
 
         try {
             await supabase.from('profiles').delete().eq('id', userId);
@@ -170,7 +170,6 @@ class AdminManager {
         }
     }
 
-    // ── APPOINTMENTS ──────────────────────────────────────────────────────
     async _appointments(el) {
         const { data: apts } = await supabase
             .from('appointments')
@@ -183,8 +182,11 @@ class AdminManager {
                 <div class="table-wrap">
                     <table>
                         <thead><tr>
-                            <th>Patient</th><th>Doctor</th><th>Type</th>
-                            <th>Date &amp; Time</th><th>Status</th>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Type</th>
+                            <th>Date &amp; Time</th>
+                            <th>Status</th>
                             <th></th>
                         </tr></thead>
                         <tbody>
@@ -209,7 +211,6 @@ class AdminManager {
         app.loadView('appointments');
     }
 
-    // ── PAYMENTS ──────────────────────────────────────────────────────────
     async _payments(el) {
         const { data: payments } = await supabase
             .from('payments')
@@ -229,8 +230,12 @@ class AdminManager {
                 <div class="table-wrap">
                     <table>
                         <thead><tr>
-                            <th>Patient</th><th>Doctor</th><th>Amount</th>
-                            <th>Method</th><th>Status</th><th>Date</th>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Date</th>
                         </tr></thead>
                         <tbody>
                         ${(payments||[]).map(p => `
@@ -248,7 +253,6 @@ class AdminManager {
             </div>`;
     }
 
-    // ── REPORTS ───────────────────────────────────────────────────────────
     async _reports(el) {
         const [{ data: apts }, { data: patients }, { data: doctors }] = await Promise.all([
             supabase.from('appointments').select('status,scheduled_at,consultation_type'),
@@ -301,7 +305,6 @@ class AdminManager {
             </div>`;
     }
 
-    // ── ACTIVITY LOGS ─────────────────────────────────────────────────────
     async _logs(el) {
         const { data: logs } = await supabase
             .from('activity_logs')
@@ -312,8 +315,8 @@ class AdminManager {
         const ACTION_LABELS = {
             login:'Logged in', logout:'Logged out', register:'Registered',
             appointment_booked:'Booked appointment',
-            admin_activate_user:'✅ Activated user', admin_disable_user:'⛔ Disabled user',
-            admin_delete_user:'🗑️ Deleted user', admin_cancel_appointment:'❌ Cancelled appointment'
+            admin_activate_user:'Activated user', admin_disable_user:'Disabled user',
+            admin_delete_user:'Deleted user', admin_cancel_appointment:'Cancelled appointment'
         };
 
         el.innerHTML = `
@@ -339,4 +342,4 @@ class AdminManager {
 
 const adminManager = new AdminManager();
 window.adminManager = adminManager;
-console.log('✅ AdminManager loaded');
+console.log('AdminManager loaded');

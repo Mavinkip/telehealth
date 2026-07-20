@@ -1,20 +1,14 @@
 /*
  * File: style.css
  * Purpose: Complete styling for Telehealth Communication System
- * Design: Modern, clean, medical-grade UI with smooth animations
  */
 
-/* ============================================
-   1. CSS VARIABLES & ROOT
-   ============================================ */
 :root {
-    /* Primary Colors */
     --primary: #2563EB;
     --primary-dark: #1D4ED8;
     --primary-light: #EFF6FF;
     --primary-gradient: linear-gradient(135deg, #2563EB 0%, #4F46E5 50%, #7C3AED 100%);
     
-    /* Status Colors */
     --success: #10B981;
     --success-light: #D1FAE5;
     --warning: #F59E0B;
@@ -24,7 +18,6 @@
     --info: #3B82F6;
     --info-light: #DBEAFE;
     
-    /* Grayscale */
     --surface: #FFFFFF;
     --background: #F8FAFC;
     --border: #E2E8F0;
@@ -32,34 +25,21 @@
     --text-light: #64748B;
     --text-lighter: #94A3B8;
     
-    /* Shadows */
     --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
     --shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
     --shadow-lg: 0 18px 45px rgba(37, 99, 235, 0.18);
     --shadow-xl: 0 30px 80px rgba(15, 23, 42, 0.15);
     
-    /* Border Radius */
     --radius-sm: 8px;
     --radius: 16px;
     --radius-lg: 20px;
     --radius-xl: 24px;
     --radius-full: 50px;
     
-    /* Transitions */
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    /* Font */
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    
-    /* Sidebar */
-    --sidebar-width: 260px;
-    --sidebar-collapsed: 72px;
-    --header-height: 60px;
 }
 
-/* ============================================
-   2. GLOBAL RESET & BASE
-   ============================================ */
 * {
     margin: 0;
     padding: 0;
@@ -79,22 +59,19 @@ body {
     overflow-x: hidden;
 }
 
-/* ============================================
-   3. LAYOUT - SIDEBAR + MAIN
-   ============================================ */
 .app-layout {
     display: flex;
     min-height: 100vh;
     overflow: hidden;
 }
 
-/* ─── SIDEBAR ─── */
+/* Sidebar */
 .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     height: 100vh;
-    width: var(--sidebar-width);
+    width: 260px;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
@@ -106,7 +83,7 @@ body {
 }
 
 .sidebar.collapsed {
-    width: var(--sidebar-collapsed);
+    width: 72px;
 }
 
 .sidebar-header {
@@ -115,7 +92,7 @@ body {
     justify-content: space-between;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
-    min-height: var(--header-height);
+    min-height: 60px;
     flex-shrink: 0;
 }
 
@@ -247,20 +224,6 @@ body {
     overflow: hidden;
 }
 
-.sidebar-nav .nav-item .nav-badge {
-    margin-left: auto;
-    background: var(--danger);
-    color: white;
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    font-weight: 600;
-}
-
-.sidebar.collapsed .nav-badge {
-    display: none;
-}
-
 .sidebar-footer {
     padding: 10px 14px;
     border-top: 1px solid var(--border);
@@ -310,29 +273,29 @@ body {
     overflow: hidden;
 }
 
-/* ─── MAIN CONTENT ─── */
+/* Main Content */
 .main-content {
     flex: 1;
-    margin-left: var(--sidebar-width);
+    margin-left: 260px;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     transition: margin-left 0.3s ease;
     overflow-x: hidden;
-    width: calc(100% - var(--sidebar-width));
+    width: calc(100% - 260px);
 }
 
 .main-content.expanded {
-    margin-left: var(--sidebar-collapsed);
-    width: calc(100% - var(--sidebar-collapsed));
+    margin-left: 72px;
+    width: calc(100% - 72px);
 }
 
-/* ─── TOP HEADER ─── */
+/* Top Header */
 .top-header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     padding: 0 16px;
-    height: var(--header-height);
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -340,7 +303,7 @@ body {
     top: 0;
     z-index: 999;
     flex-shrink: 0;
-    min-height: var(--header-height);
+    min-height: 60px;
 }
 
 .top-header .header-left {
@@ -454,7 +417,28 @@ body {
     color: var(--text-light);
 }
 
-/* ─── CONTENT AREA ─── */
+.header-logout-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.header-logout-btn:hover {
+    background: #DC2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+/* Content Area */
 .content-area {
     flex: 1;
     padding: 16px 20px;
@@ -463,9 +447,7 @@ body {
     max-width: 100%;
 }
 
-/* ============================================
-   4. SIDEBAR OVERLAY (Mobile)
-   ============================================ */
+/* Sidebar Overlay */
 .sidebar-overlay {
     position: fixed;
     inset: 0;
@@ -484,9 +466,7 @@ body {
     to { opacity: 1; }
 }
 
-/* ============================================
-   5. DASHBOARD STATS CARDS
-   ============================================ */
+/* Stats Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -519,22 +499,12 @@ body {
     color: var(--text);
 }
 
-.stat-card .stat-value.accent {
-    color: var(--primary);
-}
-.stat-card .stat-value.success {
-    color: var(--success);
-}
-.stat-card .stat-value.warning {
-    color: var(--warning);
-}
-.stat-card .stat-value.danger {
-    color: var(--danger);
-}
+.stat-card .stat-value.accent { color: var(--primary); }
+.stat-card .stat-value.success { color: var(--success); }
+.stat-card .stat-value.warning { color: var(--warning); }
+.stat-card .stat-value.danger { color: var(--danger); }
 
-/* ============================================
-   6. CARDS
-   ============================================ */
+/* Cards */
 .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -568,9 +538,7 @@ body {
     margin: 0;
 }
 
-/* ============================================
-   7. BUTTONS
-   ============================================ */
+/* Buttons */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -658,9 +626,7 @@ body {
     justify-content: center;
 }
 
-/* ============================================
-   8. TABLES
-   ============================================ */
+/* Tables */
 .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -695,9 +661,7 @@ body {
     background: var(--primary-light);
 }
 
-/* ============================================
-   9. BADGES / PILLS
-   ============================================ */
+/* Badges */
 .pill {
     display: inline-block;
     padding: 3px 10px;
@@ -707,38 +671,14 @@ body {
 }
 
 .pill-active,
-.pill-paid,
-.pill-success {
-    background: var(--success-light);
-    color: var(--success);
-}
-
+.pill-paid { background: var(--success-light); color: var(--success); }
 .pill-disabled,
-.pill-cancelled,
-.pill-danger {
-    background: var(--danger-light);
-    color: var(--danger);
-}
+.pill-cancelled { background: var(--danger-light); color: var(--danger); }
+.pill-pending { background: var(--warning-light); color: var(--warning); }
+.pill-scheduled { background: var(--info-light); color: var(--info); }
+.pill-completed { background: var(--border); color: var(--text-light); }
 
-.pill-pending,
-.pill-warning {
-    background: var(--warning-light);
-    color: var(--warning);
-}
-
-.pill-scheduled {
-    background: var(--info-light);
-    color: var(--info);
-}
-
-.pill-completed {
-    background: var(--border);
-    color: var(--text-light);
-}
-
-/* ============================================
-   10. PAGE HEADER
-   ============================================ */
+/* Page Header */
 .page-header {
     margin-bottom: 16px;
 }
@@ -755,9 +695,7 @@ body {
     margin: 2px 0 0;
 }
 
-/* ============================================
-   11. ALERTS
-   ============================================ */
+/* Alerts */
 .alert {
     padding: 12px 16px;
     border-radius: var(--radius);
@@ -770,217 +708,69 @@ body {
     font-size: 0.9rem;
 }
 
-.alert-warning {
-    background: var(--warning-light);
-    border: 1px solid #FCD34D;
-    color: #92400E;
-}
+.alert-warning { background: var(--warning-light); border: 1px solid #FCD34D; color: #92400E; }
+.alert-success { background: var(--success-light); border: 1px solid #86EFAC; color: #166534; }
+.alert-info { background: var(--info-light); border: 1px solid #93C5FD; color: #1E40AF; }
+.alert-danger { background: var(--danger-light); border: 1px solid #FCA5A5; color: #991B1B; }
 
-.alert-success {
-    background: var(--success-light);
-    border: 1px solid #86EFAC;
-    color: #166534;
-}
-
-.alert-info {
-    background: var(--info-light);
-    border: 1px solid #93C5FD;
-    color: #1E40AF;
-}
-
-.alert-danger {
-    background: var(--danger-light);
-    border: 1px solid #FCA5A5;
-    color: #991B1B;
-}
-
-/* ============================================
-   12. APPOINTMENT CARDS
-   ============================================ */
-.appointment-card {
+/* Dashboard Cards */
+.dashboard-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 14px 16px;
-    margin-bottom: 10px;
+    padding: 20px;
+    text-align: center;
     transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-}
-
-.appointment-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
-
-.appointment-card::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 4px;
-    height: 100%;
-    background: var(--primary);
-}
-
-.appointment-card.status-confirmed::before {
-    background: var(--success);
-}
-.appointment-card.status-pending::before {
-    background: var(--warning);
-}
-.appointment-card.status-in-progress::before {
-    background: var(--info);
-}
-.appointment-card.status-cancelled::before {
-    background: var(--danger);
-}
-.appointment-card.status-completed::before {
-    background: var(--text-lighter);
-}
-
-.appointment-card .appointment-top {
+    cursor: pointer;
+    min-height: 150px;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
+    width: 100%;
 }
 
-.appointment-card .appointment-doctor {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.dashboard-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
 }
 
-.appointment-card .doctor-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+.dashboard-card .icon {
+    width: 60px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: 14px;
-    color: white;
+    border-radius: var(--radius);
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 24px;
+    margin: 0 auto 12px;
+    transition: var(--transition);
     flex-shrink: 0;
 }
 
-.appointment-card .doctor-name {
-    font-weight: 600;
-    font-size: 0.9rem;
+.dashboard-card:hover .icon {
+    transform: scale(1.05);
+    background: var(--primary);
+    color: white;
 }
 
-.appointment-card .doctor-specialty {
-    font-size: 0.75rem;
-    color: var(--text-light);
-}
-
-.appointment-card .appointment-time-large {
-    text-align: right;
-}
-
-.appointment-card .appointment-time-large .time {
-    font-size: 1.1rem;
+.dashboard-card h4 {
+    font-size: 1.6rem;
     font-weight: 700;
-    color: var(--primary);
+    margin: 4px 0;
+    line-height: 1.2;
 }
 
-.appointment-card .appointment-time-large .date {
-    font-size: 0.7rem;
+.dashboard-card p {
     color: var(--text-light);
+    margin: 0;
+    font-weight: 500;
+    font-size: 0.85rem;
 }
 
-.appointment-card .appointment-details {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin: 8px 0;
-    padding: 8px 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-}
-
-.appointment-card .detail-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-light);
-    font-size: 0.75rem;
-}
-
-.appointment-card .detail-item i {
-    color: var(--primary);
-    width: 14px;
-}
-
-.appointment-card .appointment-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-}
-
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 12px;
-    border-radius: var(--radius-full);
-    font-weight: 600;
-    font-size: 0.65rem;
-}
-
-.status-badge .status-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.status-badge.confirmed {
-    background: var(--success-light);
-    color: var(--success);
-}
-.status-badge.confirmed .status-dot {
-    background: var(--success);
-}
-
-.status-badge.pending {
-    background: var(--warning-light);
-    color: var(--warning);
-}
-.status-badge.pending .status-dot {
-    background: var(--warning);
-}
-
-.status-badge.in-progress {
-    background: var(--info-light);
-    color: var(--info);
-}
-.status-badge.in-progress .status-dot {
-    background: var(--info);
-}
-
-.status-badge.cancelled {
-    background: var(--danger-light);
-    color: var(--danger);
-}
-.status-badge.cancelled .status-dot {
-    background: var(--danger);
-}
-
-.status-badge.completed {
-    background: var(--border);
-    color: var(--text-light);
-}
-.status-badge.completed .status-dot {
-    background: var(--text-lighter);
-}
-
-/* ============================================
-   13. LOGIN PAGE
-   ============================================ */
+/* Login Page */
 .login-page {
     min-height: 100vh;
     display: flex;
@@ -1040,14 +830,8 @@ body {
 }
 
 @keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; transform: translateY(30px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .login-card .logo-icon {
@@ -1064,10 +848,6 @@ body {
     box-shadow: 0 0 30px rgba(37, 99, 235, 0.3);
     transition: var(--transition);
     margin: 0 auto 16px;
-}
-
-.login-card .logo-icon:hover {
-    transform: scale(1.05) rotate(-5deg);
 }
 
 .login-card h2 {
@@ -1111,11 +891,6 @@ body {
     width: 100%;
 }
 
-.login-card .btn-primary:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 30px rgba(37, 99, 235, 0.4);
-}
-
 .login-card .auth-links {
     text-align: center;
     margin-top: 16px;
@@ -1131,20 +906,11 @@ body {
     font-size: 0.85rem;
 }
 
-.login-card .auth-links a:hover {
-    color: var(--primary-dark);
-    text-decoration: underline;
-}
-
-/* ============================================
-   14. RESPONSIVE - FIXED
-   ============================================ */
-
-/* ─── TABLET AND BELOW ─── */
+/* Responsive */
 @media (max-width: 992px) {
     .sidebar {
         transform: translateX(-100%);
-        width: var(--sidebar-width);
+        width: 260px;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
     }
 
@@ -1154,7 +920,7 @@ body {
 
     .sidebar.collapsed {
         transform: translateX(-100%);
-        width: var(--sidebar-width);
+        width: 260px;
     }
 
     .sidebar.collapsed.open {
@@ -1179,16 +945,11 @@ body {
         display: none;
     }
     
-    .top-header .header-right .user-profile {
-        padding: 4px;
-    }
-    
-    .top-header .header-left .page-title {
-        font-size: 0.9rem;
+    .header-logout-btn span {
+        display: none;
     }
 }
 
-/* ─── MOBILE ─── */
 @media (max-width: 768px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1205,34 +966,8 @@ body {
         min-height: 54px;
     }
     
-    .top-header .header-left .hamburger {
-        font-size: 1.2rem;
-        padding: 4px 6px;
-    }
-    
-    .top-header .header-left .page-title {
-        font-size: 0.85rem;
-    }
-    
-    .top-header .header-right .notification-btn {
-        font-size: 1rem;
-        padding: 4px 6px;
-    }
-    
-    .top-header .header-right .user-profile .avatar {
-        width: 28px;
-        height: 28px;
-        font-size: 10px;
-    }
-    
     .card {
         padding: 12px 14px;
-    }
-    
-    .card-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
     }
     
     .stat-card {
@@ -1242,119 +977,8 @@ body {
     .stat-card .stat-value {
         font-size: 1.3rem;
     }
-    
-    .stat-card .stat-label {
-        font-size: 0.7rem;
-    }
-    
-    .appointment-card {
-        padding: 12px 14px;
-    }
-    
-    .appointment-card .appointment-top {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .appointment-card .appointment-time-large {
-        text-align: left;
-        width: 100%;
-    }
-    
-    .appointment-card .appointment-doctor .doctor-avatar {
-        width: 32px;
-        height: 32px;
-        font-size: 12px;
-    }
-    
-    .appointment-card .appointment-details {
-        flex-direction: column;
-        gap: 4px;
-    }
-    
-    .appointment-card .appointment-actions {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .appointment-card .appointment-actions .btn {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .alert {
-        flex-direction: column;
-        text-align: center;
-        padding: 10px 14px;
-        font-size: 0.85rem;
-    }
-    
-    .page-header h2 {
-        font-size: 1.1rem;
-    }
-    
-    .login-card {
-        padding: 24px 16px;
-        max-width: 100%;
-        margin: 0 8px;
-    }
-    
-    .login-card .logo-icon {
-        width: 48px;
-        height: 48px;
-        font-size: 1.3rem;
-    }
-    
-    .login-card h2 {
-        font-size: 1.2rem;
-    }
-    
-    .login-card .subtitle {
-        font-size: 0.8rem;
-    }
-    
-    .login-card .form-control {
-        height: 40px;
-        font-size: 0.85rem;
-        padding: 0 12px;
-    }
-    
-    .login-card .btn-primary {
-        height: 40px;
-        font-size: 0.85rem;
-    }
-    
-    .login-card .auth-links a {
-        font-size: 0.8rem;
-    }
-    
-    .table-wrap table {
-        font-size: 0.75rem;
-        min-width: 400px;
-    }
-    
-    .table-wrap thead th,
-    .table-wrap tbody td {
-        padding: 8px 10px;
-    }
-    
-    .btn {
-        font-size: 0.75rem;
-        padding: 6px 12px;
-    }
-    
-    .btn-sm {
-        font-size: 0.65rem;
-        padding: 3px 10px;
-    }
-    
-    .pill {
-        font-size: 0.6rem;
-        padding: 2px 8px;
-    }
 }
 
-/* ─── SMALL PHONES ─── */
 @media (max-width: 480px) {
     .stats-grid {
         grid-template-columns: 1fr 1fr;
@@ -1375,20 +999,6 @@ body {
         font-size: 0.75rem;
     }
     
-    .top-header .header-left .hamburger {
-        font-size: 1rem;
-    }
-    
-    .top-header .header-right .user-profile .avatar {
-        width: 24px;
-        height: 24px;
-        font-size: 9px;
-    }
-    
-    .top-header .header-right .notification-btn {
-        font-size: 0.9rem;
-    }
-    
     .card {
         padding: 10px 12px;
         border-radius: 12px;
@@ -1401,10 +1011,6 @@ body {
     
     .stat-card .stat-value {
         font-size: 1.1rem;
-    }
-    
-    .stat-card .stat-label {
-        font-size: 0.65rem;
     }
     
     .login-card {
@@ -1425,102 +1031,14 @@ body {
     .login-card .form-control {
         height: 36px;
         font-size: 0.8rem;
-        border-radius: 10px;
     }
     
     .login-card .btn-primary {
         height: 36px;
         font-size: 0.8rem;
-        border-radius: 10px;
-    }
-    
-    .appointment-card {
-        padding: 10px 12px;
-        border-radius: 12px;
-    }
-    
-    .appointment-card .doctor-avatar {
-        width: 28px;
-        height: 28px;
-        font-size: 10px;
-    }
-    
-    .appointment-card .doctor-name {
-        font-size: 0.8rem;
-    }
-    
-    .appointment-card .appointment-time-large .time {
-        font-size: 0.95rem;
-    }
-    
-    .appointment-card .detail-item {
-        font-size: 0.65rem;
-    }
-    
-    .page-header h2 {
-        font-size: 0.95rem;
-    }
-    
-    .page-header .text-muted {
-        font-size: 0.75rem;
-    }
-    
-    .alert {
-        font-size: 0.75rem;
-        padding: 8px 12px;
-        border-radius: 10px;
-    }
-    
-    .btn {
-        font-size: 0.7rem;
-        padding: 4px 10px;
-    }
-    
-    .btn-sm {
-        font-size: 0.6rem;
-        padding: 2px 8px;
     }
 }
 
-/* ─── EXTRA SMALL (Very old phones) ─── */
-@media (max-width: 360px) {
-    .stats-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-    }
-    
-    .stat-card .stat-value {
-        font-size: 0.95rem;
-    }
-    
-    .stat-card .stat-label {
-        font-size: 0.55rem;
-    }
-    
-    .top-header .header-left .page-title {
-        font-size: 0.65rem;
-    }
-    
-    .login-card {
-        padding: 12px 10px;
-    }
-    
-    .login-card h2 {
-        font-size: 0.9rem;
-    }
-    
-    .login-card .form-control {
-        height: 32px;
-        font-size: 0.75rem;
-    }
-    
-    .login-card .btn-primary {
-        height: 32px;
-        font-size: 0.75rem;
-    }
-}
-
-/* ─── SIDEBAR SCROLLBAR ─── */
 .sidebar-nav::-webkit-scrollbar {
     width: 4px;
 }
@@ -1532,125 +1050,4 @@ body {
 .sidebar-nav::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: var(--radius-full);
-}
-
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
-    background: var(--text-lighter);
-}
-
-/* ============================================
-   15. PATIENT CARDS
-   ============================================ */
-.patient-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    margin-bottom: 10px;
-    transition: var(--transition);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.patient-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
-
-.patient-card .patient-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.patient-card .patient-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 16px;
-    color: white;
-    flex-shrink: 0;
-}
-
-.patient-card .patient-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.patient-card .patient-email {
-    font-size: 0.75rem;
-    color: var(--text-light);
-}
-
-.patient-card .patient-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-@media (max-width: 480px) {
-    .patient-card {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .patient-card .patient-actions {
-        width: 100%;
-    }
-    
-    .patient-card .patient-actions .btn {
-        flex: 1;
-        justify-content: center;
-    }
-}
-/* ─── Header Logout Button ─── */
-.header-logout-btn {
-    background: var(--danger);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.header-logout-btn:hover {
-    background: #DC2626;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-    .header-logout-btn {
-        padding: 4px 10px;
-        font-size: 0.7rem;
-    }
-    
-    .header-logout-btn span {
-        display: none;
-    }
-}
-
-@media (max-width: 480px) {
-    .header-logout-btn {
-        padding: 4px 8px;
-        font-size: 0.65rem;
-    }
-    
-    .header-logout-btn i {
-        font-size: 0.8rem;
-    }
 }
