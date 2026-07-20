@@ -1610,3 +1610,47 @@ body {
         justify-content: center;
     }
 }
+/* ─── Header Logout Button ─── */
+.header-logout-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.header-logout-btn:hover {
+    background: #DC2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .header-logout-btn {
+        padding: 4px 10px;
+        font-size: 0.7rem;
+    }
+    
+    .header-logout-btn span {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-logout-btn {
+        padding: 4px 8px;
+        font-size: 0.65rem;
+    }
+    
+    .header-logout-btn i {
+        font-size: 0.8rem;
+    }
+}

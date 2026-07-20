@@ -45,7 +45,6 @@ class App {
         const app = document.getElementById('app');
         app.innerHTML = this.getLayoutHTML(profile);
         
-        // Wait for DOM to be ready before attaching events
         setTimeout(() => {
             this.attachEvents();
             this.loadView('dashboard');
@@ -120,7 +119,7 @@ class App {
                         ${navHTML}
                     </nav>
                     <div class="sidebar-footer">
-                        <button class="nav-item" id="logoutBtn">
+                        <button class="nav-item" id="logoutBtnSidebar">
                             <span class="nav-icon">🚪</span>
                             <span class="nav-label">Logout</span>
                         </button>
@@ -148,6 +147,10 @@ class App {
                                     <span class="role">${roleLabel}</span>
                                 </div>
                             </div>
+                            <!-- Logout button in header (visible on all devices) -->
+                            <button class="btn btn-sm btn-danger header-logout-btn" id="logoutBtnHeader">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
                         </div>
                     </header>
                     <div class="content-area" id="app-content">
@@ -172,7 +175,7 @@ class App {
             });
         }
 
-        // Hamburger (mobile) - FIXED
+        // Hamburger (mobile)
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', (e) => {
@@ -181,7 +184,7 @@ class App {
             });
         }
 
-        // Sidebar overlay (mobile) - FIXED
+        // Sidebar overlay (mobile)
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -189,24 +192,28 @@ class App {
             });
         }
 
-        // Navigation items - FIXED to close mobile sidebar after click
+        // Navigation items - close mobile sidebar after click
         document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
             item.addEventListener('click', () => {
                 const view = item.dataset.view;
                 this.loadView(view);
-                // Close mobile sidebar after navigation
                 this.closeMobileSidebar();
             });
         });
 
-        // Logout
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
-                const result = await authManager.logout();
-                if (result.success) {
-                    window.location.reload();
-                }
+        // Logout from sidebar
+        const logoutBtnSidebar = document.getElementById('logoutBtnSidebar');
+        if (logoutBtnSidebar) {
+            logoutBtnSidebar.addEventListener('click', async () => {
+                await this.handleLogout();
+            });
+        }
+
+        // Logout from header - NEW
+        const logoutBtnHeader = document.getElementById('logoutBtnHeader');
+        if (logoutBtnHeader) {
+            logoutBtnHeader.addEventListener('click', async () => {
+                await this.handleLogout();
             });
         }
 
@@ -230,10 +237,9 @@ class App {
             }
         });
 
-        // Window resize - FIXED
+        // Window resize
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
-                // Close mobile sidebar when switching to desktop
                 this.closeMobileSidebar();
                 document.getElementById('sidebarOverlay')?.classList.remove('active');
                 document.querySelector('.sidebar')?.classList.remove('open');
@@ -241,6 +247,13 @@ class App {
         });
 
         this.updateActiveNav('dashboard');
+    }
+
+    async handleLogout() {
+        const result = await authManager.logout();
+        if (result.success) {
+            window.location.reload();
+        }
     }
 
     toggleSidebar() {
@@ -302,7 +315,6 @@ class App {
         const content = document.getElementById('app-content');
         if (!content) return;
 
-        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
