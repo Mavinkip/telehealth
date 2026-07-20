@@ -1,31 +1,92 @@
 /*
- * File: layout.css
- * Purpose: Shared layout with collapsible sidebar navigation
- * Design: Modern, responsive, medical-grade UI with smooth transitions
+ * File: style.css
+ * Purpose: Complete styling for Telehealth Communication System
+ * Design: Modern, clean, medical-grade UI with smooth animations
  */
 
 /* ============================================
-   1. LAYOUT VARIABLES
+   1. CSS VARIABLES & ROOT
    ============================================ */
 :root {
+    /* Primary Colors */
+    --primary: #2563EB;
+    --primary-dark: #1D4ED8;
+    --primary-light: #EFF6FF;
+    --primary-gradient: linear-gradient(135deg, #2563EB 0%, #4F46E5 50%, #7C3AED 100%);
+    
+    /* Status Colors */
+    --success: #10B981;
+    --success-light: #D1FAE5;
+    --warning: #F59E0B;
+    --warning-light: #FEF3C7;
+    --danger: #EF4444;
+    --danger-light: #FEE2E2;
+    --info: #3B82F6;
+    --info-light: #DBEAFE;
+    
+    /* Grayscale */
+    --surface: #FFFFFF;
+    --background: #F8FAFC;
+    --border: #E2E8F0;
+    --text: #0F172A;
+    --text-light: #64748B;
+    --text-lighter: #94A3B8;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+    --shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 18px 45px rgba(37, 99, 235, 0.18);
+    --shadow-xl: 0 30px 80px rgba(15, 23, 42, 0.15);
+    
+    /* Border Radius */
+    --radius-sm: 8px;
+    --radius: 16px;
+    --radius-lg: 20px;
+    --radius-xl: 24px;
+    --radius-full: 50px;
+    
+    /* Transitions */
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Font */
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    
+    /* Sidebar */
     --sidebar-width: 260px;
     --sidebar-collapsed: 72px;
     --header-height: 64px;
-    --transition-speed: 0.3s;
 }
 
 /* ============================================
-   2. APP LAYOUT
+   2. GLOBAL RESET & BASE
+   ============================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-family);
+    background: var(--background);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* ============================================
+   3. LAYOUT - SIDEBAR + MAIN
    ============================================ */
 .app-layout {
     display: flex;
     min-height: 100vh;
-    background: var(--background);
 }
 
-/* ============================================
-   3. SIDEBAR
-   ============================================ */
+/* ─── SIDEBAR ─── */
 .sidebar {
     position: fixed;
     top: 0;
@@ -36,7 +97,7 @@
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    transition: transform var(--transition-speed) ease, width var(--transition-speed) ease;
+    transition: transform 0.3s ease, width 0.3s ease;
     z-index: 1000;
     overflow: hidden;
     box-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
@@ -82,7 +143,7 @@
     font-weight: 700;
     font-size: 1.1rem;
     white-space: nowrap;
-    transition: opacity var(--transition-speed) ease;
+    transition: opacity 0.3s ease;
 }
 
 .sidebar.collapsed .brand-text {
@@ -117,10 +178,6 @@
     overflow-x: hidden;
 }
 
-.sidebar-nav .nav-section {
-    margin-bottom: 8px;
-}
-
 .sidebar-nav .nav-section-title {
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -129,14 +186,13 @@
     padding: 8px 12px 4px 12px;
     font-weight: 600;
     white-space: nowrap;
-    transition: opacity var(--transition-speed) ease;
+    transition: opacity 0.3s ease;
 }
 
 .sidebar.collapsed .nav-section-title {
     opacity: 0;
     height: 0;
     padding: 0;
-    margin: 0;
     overflow: hidden;
 }
 
@@ -151,7 +207,6 @@
     transition: var(--transition);
     cursor: pointer;
     white-space: nowrap;
-    position: relative;
     font-weight: 500;
     font-size: 0.9rem;
     border: none;
@@ -181,7 +236,7 @@
 }
 
 .sidebar-nav .nav-item .nav-label {
-    transition: opacity var(--transition-speed) ease;
+    transition: opacity 0.3s ease;
 }
 
 .sidebar.collapsed .nav-label {
@@ -244,7 +299,7 @@
 }
 
 .sidebar-footer .nav-item .nav-label {
-    transition: opacity var(--transition-speed) ease;
+    transition: opacity 0.3s ease;
 }
 
 .sidebar.collapsed .nav-label {
@@ -253,25 +308,21 @@
     overflow: hidden;
 }
 
-/* ============================================
-   4. MAIN CONTENT
-   ============================================ */
+/* ─── MAIN CONTENT ─── */
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    transition: margin-left var(--transition-speed) ease;
+    transition: margin-left 0.3s ease;
 }
 
 .main-content.expanded {
     margin-left: var(--sidebar-collapsed);
 }
 
-/* ============================================
-   5. TOP HEADER
-   ============================================ */
+/* ─── TOP HEADER ─── */
 .top-header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -391,9 +442,7 @@
     color: var(--text-light);
 }
 
-/* ============================================
-   6. CONTENT AREA
-   ============================================ */
+/* ─── CONTENT AREA ─── */
 .content-area {
     flex: 1;
     padding: 24px;
@@ -401,7 +450,247 @@
 }
 
 /* ============================================
-   7. RESPONSIVE
+   4. DASHBOARD STATS CARDS
+   ============================================ */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+}
+
+.stat-card .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.stat-card .stat-value.accent {
+    color: var(--primary);
+}
+.stat-card .stat-value.success {
+    color: var(--success);
+}
+.stat-card .stat-value.warning {
+    color: var(--warning);
+}
+.stat-card .stat-value.danger {
+    color: var(--danger);
+}
+
+/* ============================================
+   5. CARDS
+   ============================================ */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 24px;
+    transition: var(--transition);
+    height: 100%;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* ============================================
+   6. BUTTONS
+   ============================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.4);
+    transform: translateY(-3px);
+    color: white;
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+}
+
+.btn-success:hover {
+    background: #059669;
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
+    color: white;
+}
+
+.btn-warning {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #D97706;
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.35);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #DC2626;
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.35);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--border);
+    color: var(--text);
+}
+
+.btn-secondary:hover {
+    background: var(--text-lighter);
+    color: var(--text);
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+}
+
+/* ============================================
+   7. TABLES
+   ============================================ */
+.table-wrap {
+    overflow-x: auto;
+}
+
+.table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.table-wrap thead {
+    background: var(--primary);
+    color: white;
+}
+
+.table-wrap thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.table-wrap tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.table-wrap tbody tr:hover {
+    background: var(--primary-light);
+}
+
+/* ============================================
+   8. BADGES / PILLS
+   ============================================ */
+.pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.pill-active {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.pill-disabled {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+.pill-pending {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.pill-scheduled {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.pill-completed {
+    background: var(--border);
+    color: var(--text-light);
+}
+
+.pill-cancelled {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+/* ============================================
+   9. RESPONSIVE
    ============================================ */
 @media (max-width: 992px) {
     .sidebar {
@@ -434,31 +723,33 @@
         display: block;
     }
 
-    .top-header .header-left .page-title {
-        font-size: 1rem;
-    }
-
     .top-header .header-right .user-profile .user-info {
         display: none;
     }
 }
 
-@media (max-width: 576px) {
-    .top-header {
-        padding: 0 12px;
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
     }
-
+    
     .content-area {
         padding: 16px;
     }
-
-    .top-header .header-right .notification-btn {
-        font-size: 1rem;
-        padding: 4px 8px;
+    
+    .top-header {
+        padding: 0 12px;
     }
+}
 
-    .top-header .header-left .page-title {
-        font-size: 0.9rem;
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 1.5rem;
     }
 }
 
@@ -476,22 +767,239 @@
     display: block;
 }
 
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 /* ============================================
-   8. SIDEBAR SCROLLBAR
+   10. PAGE HEADER
    ============================================ */
-.sidebar-nav::-webkit-scrollbar {
+.page-header {
+    margin-bottom: 24px;
+}
+
+.page-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.page-header .text-muted {
+    color: var(--text-light);
+    font-size: 0.95rem;
+    margin: 4px 0 0;
+}
+
+/* ============================================
+   11. ALERTS
+   ============================================ */
+.alert {
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.alert-warning {
+    background: var(--warning-light);
+    border: 1px solid #FCD34D;
+    color: #92400E;
+}
+
+.alert-success {
+    background: var(--success-light);
+    border: 1px solid #86EFAC;
+    color: #166534;
+}
+
+.alert-info {
+    background: var(--info-light);
+    border: 1px solid #93C5FD;
+    color: #1E40AF;
+}
+
+/* ============================================
+   12. APPOINTMENT CARDS
+   ============================================ */
+.appointment-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.appointment-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+}
+
+.appointment-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 4px;
+    height: 100%;
+    background: var(--primary);
 }
 
-.sidebar-nav::-webkit-scrollbar-track {
-    background: transparent;
+.appointment-card.status-confirmed::before {
+    background: var(--success);
+}
+.appointment-card.status-pending::before {
+    background: var(--warning);
+}
+.appointment-card.status-in-progress::before {
+    background: var(--info);
+}
+.appointment-card.status-cancelled::before {
+    background: var(--danger);
+}
+.appointment-card.status-completed::before {
+    background: var(--text-lighter);
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb {
-    background: var(--border);
+.appointment-card .appointment-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.appointment-card .appointment-doctor {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.appointment-card .doctor-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+    color: white;
+    flex-shrink: 0;
+}
+
+.appointment-card .doctor-name {
+    font-weight: 600;
+}
+
+.appointment-card .doctor-specialty {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.appointment-card .appointment-time-large {
+    text-align: right;
+}
+
+.appointment-card .appointment-time-large .time {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.appointment-card .appointment-time-large .date {
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+
+.appointment-card .appointment-details {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.appointment-card .detail-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-light);
+    font-size: 0.85rem;
+}
+
+.appointment-card .detail-item i {
+    color: var(--primary);
+    width: 16px;
+}
+
+.appointment-card .appointment-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
     border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.75rem;
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
+.status-badge .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-badge.confirmed {
+    background: var(--success-light);
+    color: var(--success);
+}
+.status-badge.confirmed .status-dot {
+    background: var(--success);
+}
+
+.status-badge.pending {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+.status-badge.pending .status-dot {
+    background: var(--warning);
+}
+
+.status-badge.in-progress {
+    background: var(--info-light);
+    color: var(--info);
+}
+.status-badge.in-progress .status-dot {
+    background: var(--info);
+}
+
+.status-badge.cancelled {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+.status-badge.cancelled .status-dot {
+    background: var(--danger);
+}
+
+.status-badge.completed {
+    background: var(--border);
+    color: var(--text-light);
+}
+.status-badge.completed .status-dot {
     background: var(--text-lighter);
 }

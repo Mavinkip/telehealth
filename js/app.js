@@ -1,24 +1,19 @@
 /*
  * File: app.js
- * Purpose: Main application entry with unified layout
+ * Purpose: Main application with sidebar layout
  */
 
 class App {
     constructor() {
         this.currentRole = null;
         this.currentView = 'dashboard';
-        this.isSidebarOpen = window.innerWidth > 992;
         this.isSidebarCollapsed = false;
         this.navItems = [];
-        this.contentContainer = null;
-        this.sidebar = null;
         this.init();
     }
 
     init() {
         console.log('🚀 App initializing...');
-        
-        // Wait for auth to be ready
         this.waitForAuth();
     }
 
@@ -28,8 +23,7 @@ class App {
                 console.log('✅ Auth ready, rendering layout...');
                 this.renderLayout();
             } else if (authManager && !authManager.currentUser) {
-                console.log('⏳ No user, showing login...');
-                // Auth will handle login page
+                console.log('⏳ No user, auth.js will handle login');
             } else {
                 console.log('⏳ Waiting for auth...');
                 setTimeout(checkAuth, 200);
@@ -50,9 +44,6 @@ class App {
         
         const app = document.getElementById('app');
         app.innerHTML = this.getLayoutHTML(profile);
-        
-        this.contentContainer = document.getElementById('app-content');
-        this.sidebar = document.getElementById('app-sidebar');
         
         this.attachEvents();
         this.loadView('dashboard');
@@ -107,25 +98,21 @@ class App {
 
         return `
             <div class="app-layout">
-                <!-- Sidebar Overlay (mobile) -->
                 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-                <!-- Sidebar -->
                 <aside class="sidebar" id="app-sidebar">
                     <div class="sidebar-header">
                         <a href="#" class="brand" onclick="app.loadView('dashboard'); return false;">
                             <div class="brand-icon">TH</div>
                             <span class="brand-text">TeleHealth</span>
                         </a>
-                        <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                        <button class="sidebar-toggle" id="sidebarToggle">
                             <i class="fas fa-chevron-left"></i>
                         </button>
                     </div>
                     <nav class="sidebar-nav">
-                        <div class="nav-section">
-                            <div class="nav-section-title">Main Menu</div>
-                            ${navHTML}
-                        </div>
+                        <div class="nav-section-title">Main Menu</div>
+                        ${navHTML}
                     </nav>
                     <div class="sidebar-footer">
                         <button class="nav-item" id="logoutBtn">
@@ -135,9 +122,7 @@ class App {
                     </div>
                 </aside>
 
-                <!-- Main Content -->
                 <main class="main-content" id="mainContent">
-                    <!-- Top Header -->
                     <header class="top-header">
                         <div class="header-left">
                             <button class="hamburger" id="hamburgerBtn">
@@ -146,7 +131,7 @@ class App {
                             <span class="page-title" id="pageTitle">Dashboard</span>
                         </div>
                         <div class="header-right">
-                            <button class="notification-btn" id="notificationBtn" title="Notifications">
+                            <button class="notification-btn" id="notificationBtn">
                                 <i class="fas fa-bell"></i>
                                 <span class="badge-dot"></span>
                             </button>
@@ -159,10 +144,13 @@ class App {
                             </div>
                         </div>
                     </header>
-
-                    <!-- Content -->
                     <div class="content-area" id="app-content">
-                        <!-- Dynamic content will be loaded here -->
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-muted mt-2">Loading...</p>
+                        </div>
                     </div>
                 </main>
             </div>
@@ -171,33 +159,23 @@ class App {
 
     attachEvents() {
         // Sidebar toggle (desktop)
-        const toggleBtn = document.getElementById('sidebarToggle');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                this.toggleSidebar();
-            });
-        }
+        document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+            this.toggleSidebar();
+        });
 
         // Hamburger (mobile)
-        const hamburger = document.getElementById('hamburgerBtn');
-        if (hamburger) {
-            hamburger.addEventListener('click', () => {
-                this.toggleMobileSidebar();
-            });
-        }
+        document.getElementById('hamburgerBtn')?.addEventListener('click', () => {
+            this.toggleMobileSidebar();
+        });
 
-        // Sidebar overlay (mobile)
-        const overlay = document.getElementById('sidebarOverlay');
-        if (overlay) {
-            overlay.addEventListener('click', () => {
-                this.closeMobileSidebar();
-            });
-        }
+        // Overlay (mobile)
+        document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
+            this.closeMobileSidebar();
+        });
 
         // Navigation items
         document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
+            item.addEventListener('click', () => {
                 const view = item.dataset.view;
                 this.loadView(view);
                 this.closeMobileSidebar();
@@ -205,26 +183,14 @@ class App {
         });
 
         // Logout
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                const result = await authManager.logout();
-                if (result.success) {
-                    window.location.reload();
-                }
-            });
-        }
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+            const result = await authManager.logout();
+            if (result.success) {
+                window.location.reload();
+            }
+        });
 
-        // Notification
-        const notifBtn = document.getElementById('notificationBtn');
-        if (notifBtn) {
-            notifBtn.addEventListener('click', () => {
-                alert('🔔 Notifications coming soon!');
-            });
-        }
-
-        // Keyboard shortcut: Ctrl+B to toggle sidebar
+        // Keyboard shortcut: Ctrl+B
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'b') {
                 e.preventDefault();
@@ -244,7 +210,6 @@ class App {
             }
         });
 
-        // Update active nav item
         this.updateActiveNav('dashboard');
     }
 
@@ -265,19 +230,13 @@ class App {
     }
 
     toggleMobileSidebar() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        
-        sidebar.classList.toggle('open');
-        overlay.classList.toggle('active');
+        document.querySelector('.sidebar')?.classList.toggle('open');
+        document.getElementById('sidebarOverlay')?.classList.toggle('active');
     }
 
     closeMobileSidebar() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        
-        sidebar.classList.remove('open');
-        overlay.classList.remove('active');
+        document.querySelector('.sidebar')?.classList.remove('open');
+        document.getElementById('sidebarOverlay')?.classList.remove('active');
     }
 
     updateActiveNav(view) {
@@ -309,12 +268,10 @@ class App {
             </div>
         `;
 
-        // Route to appropriate handler
-        const role = this.currentRole;
-        let result = null;
-
-        // Use setTimeout to allow the loading message to render
         setTimeout(async () => {
+            const role = this.currentRole;
+            let result = null;
+
             switch(role) {
                 case 'admin':
                     result = await this.handleAdminView(view);
@@ -337,9 +294,7 @@ class App {
     }
 
     async handleAdminView(view) {
-        if (typeof adminManager === 'undefined' || !adminManager) {
-            return `<p class="text-danger">Admin manager not loaded. Please refresh.</p>`;
-        }
+        if (!adminManager) return `<p class="text-danger">Admin manager not loaded.</p>`;
 
         const views = {
             dashboard: () => adminManager._dashboard,
@@ -358,15 +313,12 @@ class App {
             await handler().call(adminManager, container);
             return container.innerHTML;
         } catch (error) {
-            console.error('Admin view error:', error);
-            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
+            return `<p class="text-danger">Error: ${error.message}</p>`;
         }
     }
 
     async handleDoctorView(view) {
-        if (typeof doctorManager === 'undefined' || !doctorManager) {
-            return `<p class="text-danger">Doctor manager not loaded. Please refresh.</p>`;
-        }
+        if (!doctorManager) return `<p class="text-danger">Doctor manager not loaded.</p>`;
 
         const views = {
             dashboard: () => doctorManager.loadDashboardContent,
@@ -388,15 +340,12 @@ class App {
             await handler().call(doctorManager, container);
             return container.innerHTML;
         } catch (error) {
-            console.error('Doctor view error:', error);
-            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
+            return `<p class="text-danger">Error: ${error.message}</p>`;
         }
     }
 
     async handlePatientView(view) {
-        if (typeof patientManager === 'undefined' || !patientManager) {
-            return `<p class="text-danger">Patient manager not loaded. Please refresh.</p>`;
-        }
+        if (!patientManager) return `<p class="text-danger">Patient manager not loaded.</p>`;
 
         const views = {
             dashboard: () => patientManager.loadDashboardContent,
@@ -418,8 +367,7 @@ class App {
             await handler().call(patientManager, container);
             return container.innerHTML;
         } catch (error) {
-            console.error('Patient view error:', error);
-            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
+            return `<p class="text-danger">Error: ${error.message}</p>`;
         }
     }
 }
