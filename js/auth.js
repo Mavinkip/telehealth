@@ -11,7 +11,7 @@ class AuthManager {
     }
 
     async init() {
-        console.log('🔐 AuthManager initializing...');
+        console.log('AuthManager initializing...');
         
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -25,7 +25,7 @@ class AuthManager {
             }
 
             supabase.auth.onAuthStateChange(async (event, session) => {
-                console.log('🔄 Auth state changed:', event);
+                console.log('Auth state changed:', event);
                 if (event === 'SIGNED_IN' && session) {
                     this.currentUser = session.user;
                     await this.loadUserProfile();
@@ -37,30 +37,30 @@ class AuthManager {
                 }
             });
         } catch (error) {
-            console.error('❌ Auth init error:', error);
+            console.error('Auth init error:', error);
             this.showLoginPage();
         }
     }
 
     handleAuthSuccess() {
-        console.log('✅ Auth success, checking app...');
+        console.log('Auth success, checking app...');
         
         if (window.app && typeof window.app.renderLayout === 'function') {
-            console.log('🔄 App already initialized, rendering layout...');
+            console.log('App already initialized, rendering layout...');
             window.app.renderLayout();
         } else {
-            console.log('⏳ Waiting for app to be ready...');
+            console.log('Waiting for app to be ready...');
             let attempts = 0;
             const maxAttempts = 30;
             
             const checkApp = setInterval(() => {
                 attempts++;
                 if (window.app && typeof window.app.renderLayout === 'function') {
-                    console.log('✅ App ready, rendering layout...');
+                    console.log('App ready, rendering layout...');
                     clearInterval(checkApp);
                     window.app.renderLayout();
                 } else if (attempts >= maxAttempts) {
-                    console.error('❌ App not ready after max attempts');
+                    console.error('App not ready after max attempts');
                     clearInterval(checkApp);
                     this.renderDashboardFallback();
                 }
@@ -69,7 +69,7 @@ class AuthManager {
     }
 
     renderDashboardFallback() {
-        console.log('📊 Rendering dashboard fallback...');
+        console.log('Rendering dashboard fallback...');
         const profile = this.getUserProfile();
         if (!profile) {
             this.showLoginPage();
@@ -86,11 +86,11 @@ class AuthManager {
                     <p>Welcome, ${profile.full_name}</p>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
                         <div class="card" style="padding:16px;text-align:center;">
-                            <h3>👥 Users</h3>
+                            <h3>Users</h3>
                             <button onclick="window.adminManager._users(document.getElementById('content'))" class="btn btn-primary" style="margin-top:8px;">Manage</button>
                         </div>
                         <div class="card" style="padding:16px;text-align:center;">
-                            <h3>📅 Appointments</h3>
+                            <h3>Appointments</h3>
                             <button onclick="window.adminManager._appointments(document.getElementById('content'))" class="btn btn-primary" style="margin-top:8px;">View</button>
                         </div>
                     </div>
@@ -114,14 +114,14 @@ class AuthManager {
                 .single();
 
             if (error) {
-                console.error('❌ Profile load error:', error);
+                console.error('Profile load error:', error);
                 return;
             }
 
             this.userProfile = data;
-            console.log('✅ Profile loaded:', data);
+            console.log('Profile loaded:', data);
         } catch (error) {
-            console.error('❌ Profile error:', error);
+            console.error('Profile error:', error);
         }
     }
 
@@ -137,10 +137,10 @@ class AuthManager {
             this.currentUser = data.user;
             await this.loadUserProfile();
             
-            console.log('✅ Login successful!');
+            console.log('Login successful!');
             return { success: true, message: 'Login successful!' };
         } catch (error) {
-            console.error('❌ Login error:', error);
+            console.error('Login error:', error);
             return { success: false, message: error.message || 'Login failed. Please check your credentials.' };
         }
     }
@@ -152,16 +152,16 @@ class AuthManager {
             
             this.currentUser = null;
             this.userProfile = null;
-            console.log('✅ Logged out');
+            console.log('Logged out');
             return { success: true };
         } catch (error) {
-            console.error('❌ Logout error:', error);
+            console.error('Logout error:', error);
             return { success: false, message: error.message };
         }
     }
 
     showLoginPage() {
-        console.log('📝 Showing login page...');
+        console.log('Showing login page...');
         const app = document.getElementById('app');
         if (!app) return;
 
@@ -183,7 +183,7 @@ class AuthManager {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" class="form-control" id="loginPassword" placeholder="••••••••" required>
+                            <input type="password" class="form-control" id="loginPassword" placeholder="Enter your password" required>
                         </div>
                         <button type="submit" class="btn btn-primary w-100" id="loginBtn">
                             <i class="fas fa-sign-in-alt me-2"></i>Sign In
@@ -214,9 +214,9 @@ class AuthManager {
             const result = await this.login(email, password);
             
             if (result.success) {
-                message.innerHTML = '<div class="alert alert-success">✅ Login successful! Redirecting...</div>';
+                message.innerHTML = '<div class="alert alert-success">Login successful! Redirecting...</div>';
             } else {
-                message.innerHTML = `<div class="alert alert-danger">❌ ${result.message}</div>`;
+                message.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Sign In';
             }
@@ -245,7 +245,7 @@ class AuthManager {
             <div class="login-page">
                 <div class="login-card" style="max-width:480px;">
                     <div class="text-center">
-                        <div class="logo-icon" style="font-size:1.5rem;width:60px;height:60px;">📝</div>
+                        <div class="logo-icon" style="font-size:1.5rem;width:60px;height:60px;">+</div>
                         <h2>Create Account</h2>
                         <p class="subtitle">Join the Telehealth System</p>
                     </div>
@@ -298,16 +298,16 @@ class AuthManager {
             const message = document.getElementById('registerMessage');
 
             if (password !== confirmPassword) {
-                message.innerHTML = '<div class="alert alert-danger">❌ Passwords do not match!</div>';
+                message.innerHTML = '<div class="alert alert-danger">Passwords do not match!</div>';
                 return;
             }
 
             if (!role) {
-                message.innerHTML = '<div class="alert alert-danger">❌ Please select a role.</div>';
+                message.innerHTML = '<div class="alert alert-danger">Please select a role.</div>';
                 return;
             }
 
-            message.innerHTML = '<div class="alert alert-info">⏳ Creating account...</div>';
+            message.innerHTML = '<div class="alert alert-info">Creating account...</div>';
 
             const result = await this.register(email, password, fullName, role);
             message.innerHTML = `<div class="alert alert-${result.success ? 'success' : 'danger'}">${result.message}</div>`;
@@ -378,4 +378,4 @@ class AuthManager {
 // Initialize auth manager
 const authManager = new AuthManager();
 window.authManager = authManager;
-console.log('✅ AuthManager initialized');
+console.log('AuthManager initialized');
