@@ -19,7 +19,6 @@ class AuthManager {
             if (session) {
                 this.currentUser = session.user;
                 await this.loadUserProfile();
-                // Let app.js handle the routing
                 this.handleAuthSuccess();
             } else {
                 this.showLoginPage();
@@ -46,12 +45,10 @@ class AuthManager {
     handleAuthSuccess() {
         console.log('✅ Auth success, checking app...');
         
-        // Check if app is already initialized
         if (window.app && typeof window.app.renderLayout === 'function') {
             console.log('🔄 App already initialized, rendering layout...');
             window.app.renderLayout();
         } else {
-            // Wait for app to be ready
             console.log('⏳ Waiting for app to be ready...');
             let attempts = 0;
             const maxAttempts = 30;
@@ -65,7 +62,6 @@ class AuthManager {
                 } else if (attempts >= maxAttempts) {
                     console.error('❌ App not ready after max attempts');
                     clearInterval(checkApp);
-                    // Fallback: try to render dashboard directly
                     this.renderDashboardFallback();
                 }
             }, 200);
@@ -80,27 +76,26 @@ class AuthManager {
             return;
         }
         
-        // Try to use the appropriate manager
         const role = profile.role;
+        const app = document.getElementById('app');
+        
         if (role === 'admin' && window.adminManager) {
-            // Create a simple layout for admin
-            const app = document.getElementById('app');
             app.innerHTML = `
-                <div style="padding:20px;">
+                <div style="padding:16px;">
                     <h2>Admin Dashboard</h2>
                     <p>Welcome, ${profile.full_name}</p>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:20px;">
-                        <div class="card" style="padding:20px;text-align:center;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+                        <div class="card" style="padding:16px;text-align:center;">
                             <h3>👥 Users</h3>
-                            <button onclick="window.adminManager._users(document.getElementById('content'))" class="btn btn-primary">Manage</button>
+                            <button onclick="window.adminManager._users(document.getElementById('content'))" class="btn btn-primary" style="margin-top:8px;">Manage</button>
                         </div>
-                        <div class="card" style="padding:20px;text-align:center;">
+                        <div class="card" style="padding:16px;text-align:center;">
                             <h3>📅 Appointments</h3>
-                            <button onclick="window.adminManager._appointments(document.getElementById('content'))" class="btn btn-primary">View</button>
+                            <button onclick="window.adminManager._appointments(document.getElementById('content'))" class="btn btn-primary" style="margin-top:8px;">View</button>
                         </div>
                     </div>
-                    <div id="content" style="margin-top:20px;"></div>
-                    <button onclick="authManager.logout()" class="btn btn-danger" style="margin-top:20px;">Logout</button>
+                    <div id="content" style="margin-top:16px;"></div>
+                    <button onclick="authManager.logout()" class="btn btn-danger" style="margin-top:16px;width:100%;">Logout</button>
                 </div>
             `;
         } else {
@@ -200,43 +195,6 @@ class AuthManager {
                         &nbsp;·&nbsp;
                         <a href="#" id="showForgotPassword">Forgot password?</a>
                     </div>
-                    
-                    <div class="demo-accounts">
-                        <div class="demo-title">Demo Accounts</div>
-                        
-                        <div class="demo-account" onclick="authManager.fillLogin('admin@telehealth.com', 'Admin@2024')">
-                            <div class="demo-left">
-                                <div class="demo-avatar admin">A</div>
-                                <span class="demo-email">admin@telehealth.com</span>
-                            </div>
-                            <div>
-                                <span class="demo-role-badge admin">Admin</span>
-                                <span class="demo-password">Admin@2024</span>
-                            </div>
-                        </div>
-                        
-                        <div class="demo-account" onclick="authManager.fillLogin('sarah.johnson@telehealth.com', 'Telehealth@2024')">
-                            <div class="demo-left">
-                                <div class="demo-avatar doctor">D</div>
-                                <span class="demo-email">sarah.johnson@telehealth.com</span>
-                            </div>
-                            <div>
-                                <span class="demo-role-badge doctor">Doctor</span>
-                                <span class="demo-password">Telehealth@2024</span>
-                            </div>
-                        </div>
-                        
-                        <div class="demo-account" onclick="authManager.fillLogin('john.smith@email.com', 'Patient@2024')">
-                            <div class="demo-left">
-                                <div class="demo-avatar patient">P</div>
-                                <span class="demo-email">john.smith@email.com</span>
-                            </div>
-                            <div>
-                                <span class="demo-role-badge patient">Patient</span>
-                                <span class="demo-password">Patient@2024</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         `;
@@ -257,7 +215,6 @@ class AuthManager {
             
             if (result.success) {
                 message.innerHTML = '<div class="alert alert-success">✅ Login successful! Redirecting...</div>';
-                // Let the auth state change handler handle the redirect
             } else {
                 message.innerHTML = `<div class="alert alert-danger">❌ ${result.message}</div>`;
                 btn.disabled = false;
@@ -280,14 +237,6 @@ class AuthManager {
                 alert(error ? `Error: ${error.message}` : 'Password reset email sent!');
             }
         });
-    }
-
-    fillLogin(email, password) {
-        document.getElementById('loginEmail').value = email;
-        document.getElementById('loginPassword').value = password;
-        setTimeout(() => {
-            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-        }, 300);
     }
 
     showRegisterPage() {
@@ -389,9 +338,7 @@ class AuthManager {
 
             if (error) throw error;
 
-            // Profile will be created by trigger, but we can also create it directly
             if (data.user) {
-                // Check if profile already exists (created by trigger)
                 const { data: existingProfile } = await supabase
                     .from('profiles')
                     .select('id')

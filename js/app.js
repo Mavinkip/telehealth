@@ -1,6 +1,6 @@
 /*
  * File: app.js
- * Purpose: Main application with sidebar layout
+ * Purpose: Main application with sidebar layout - FIXED for mobile
  */
 
 class App {
@@ -45,8 +45,11 @@ class App {
         const app = document.getElementById('app');
         app.innerHTML = this.getLayoutHTML(profile);
         
-        this.attachEvents();
-        this.loadView('dashboard');
+        // Wait for DOM to be ready before attaching events
+        setTimeout(() => {
+            this.attachEvents();
+            this.loadView('dashboard');
+        }, 50);
     }
 
     getNavItems(role) {
@@ -98,8 +101,10 @@ class App {
 
         return `
             <div class="app-layout">
+                <!-- Sidebar Overlay (mobile) -->
                 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
+                <!-- Sidebar -->
                 <aside class="sidebar" id="app-sidebar">
                     <div class="sidebar-header">
                         <a href="#" class="brand" onclick="app.loadView('dashboard'); return false;">
@@ -122,6 +127,7 @@ class App {
                     </div>
                 </aside>
 
+                <!-- Main Content -->
                 <main class="main-content" id="mainContent">
                     <header class="top-header">
                         <div class="header-left">
@@ -159,36 +165,58 @@ class App {
 
     attachEvents() {
         // Sidebar toggle (desktop)
-        document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-            this.toggleSidebar();
-        });
+        const toggleBtn = document.getElementById('sidebarToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
 
-        // Hamburger (mobile)
-        document.getElementById('hamburgerBtn')?.addEventListener('click', () => {
-            this.toggleMobileSidebar();
-        });
+        // Hamburger (mobile) - FIXED
+        const hamburger = document.getElementById('hamburgerBtn');
+        if (hamburger) {
+            hamburger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMobileSidebar();
+            });
+        }
 
-        // Overlay (mobile)
-        document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
-            this.closeMobileSidebar();
-        });
+        // Sidebar overlay (mobile) - FIXED
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                this.closeMobileSidebar();
+            });
+        }
 
-        // Navigation items
+        // Navigation items - FIXED to close mobile sidebar after click
         document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
             item.addEventListener('click', () => {
                 const view = item.dataset.view;
                 this.loadView(view);
+                // Close mobile sidebar after navigation
                 this.closeMobileSidebar();
             });
         });
 
         // Logout
-        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-            const result = await authManager.logout();
-            if (result.success) {
-                window.location.reload();
-            }
-        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                const result = await authManager.logout();
+                if (result.success) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        // Notification
+        const notifBtn = document.getElementById('notificationBtn');
+        if (notifBtn) {
+            notifBtn.addEventListener('click', () => {
+                alert('🔔 Notifications coming soon!');
+            });
+        }
 
         // Keyboard shortcut: Ctrl+B
         document.addEventListener('keydown', (e) => {
@@ -202,9 +230,11 @@ class App {
             }
         });
 
-        // Window resize
+        // Window resize - FIXED
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
+                // Close mobile sidebar when switching to desktop
+                this.closeMobileSidebar();
                 document.getElementById('sidebarOverlay')?.classList.remove('active');
                 document.querySelector('.sidebar')?.classList.remove('open');
             }
@@ -230,13 +260,27 @@ class App {
     }
 
     toggleMobileSidebar() {
-        document.querySelector('.sidebar')?.classList.toggle('open');
-        document.getElementById('sidebarOverlay')?.classList.toggle('active');
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) {
+            sidebar.classList.toggle('open');
+        }
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
     }
 
     closeMobileSidebar() {
-        document.querySelector('.sidebar')?.classList.remove('open');
-        document.getElementById('sidebarOverlay')?.classList.remove('active');
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) {
+            sidebar.classList.remove('open');
+        }
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
     }
 
     updateActiveNav(view) {
