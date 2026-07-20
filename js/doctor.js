@@ -1,6 +1,7 @@
 /*
  * File: doctor.js
  * Purpose: Doctor dashboard with premium UI, appointments, patients, prescriptions
+ * Features: Modern appointment cards, timeline view, glassmorphism elements
  */
 
 class DoctorManager {
@@ -8,18 +9,224 @@ class DoctorManager {
         this.currentView = 'dashboard';
     }
 
-    // Remove showDashboard() - App handles layout
-    // Keep all content rendering methods
-
-    _getColor(name) {
-        const colors = ['#2563EB', '#7C3AED', '#DC2626', '#16A34A', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899'];
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    showDashboard() {
+        const app = document.getElementById('app');
+        const profile = authManager.getUserProfile();
+        
+        if (!profile) {
+            authManager.showLoginPage();
+            return;
         }
-        return colors[Math.abs(hash) % colors.length];
+
+        app.innerHTML = `
+            <nav class="navbar">
+                <div class="container">
+                    <a class="navbar-brand" href="#">
+                        <i class="fas fa-heartbeat"></i>
+                        <span>Telehealth System</span>
+                    </a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#" data-view="dashboard">
+                                    <i class="fas fa-chart-pie"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-view="appointments">
+                                    <i class="fas fa-calendar-check"></i> Appointments
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-view="patients">
+                                    <i class="fas fa-users"></i> Patients
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-view="chat">
+                                    <i class="fas fa-comments"></i> Messages
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-view="profile">
+                                    <i class="fas fa-user-cog"></i> Profile
+                                </a>
+                            </li>
+                        </ul>
+                        <div class="nav-user">
+                            <div class="avatar">${profile.full_name?.charAt(0) || 'D'}</div>
+                            <span class="user-name">Dr. ${profile.full_name}</span>
+                            <button class="btn btn-sm btn-outline-danger" id="logoutBtn">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            <div class="container mt-4" id="doctorContent"></div>
+        `;
+
+        document.querySelectorAll('[data-view]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('[data-view]').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                this.currentView = link.dataset.view;
+                this.loadView(this.currentView);
+            });
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            const result = await authManager.logout();
+            if (result.success) {
+                window.location.reload();
+            }
+        });
+
+        this.loadView('dashboard');
     }
 
+    async loadView(view) {
+        const content = document.getElementById('doctorContent');
+        if (!content) return;
+        
+        switch(view) {
+            case 'dashboard':
+                await this.loadDashboardContent(content);
+                break;
+            case 'appointments':
+                await this.loadAppointmentsContent(content);
+                break;
+            case 'patients':
+                await this.loadPatientsContent(content);
+                break;
+            case 'chat':
+                this.openChat();
+                break;
+            case 'profile':
+                await this.loadProfileContent(content);
+                break;
+            default:
+                await this.loadDashboardContent(content);
+        }
+    }
+
+    // =============================================
+    // DASHBOARD
+    // =============================================
+    async loadDashboardContent(container) {
+        const userId = authManager.getUserId();
+        
+        // Today's appointments
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const { data: todayAppointments } = await supabase
+            .from('appointments')
+            .select(`
+                *,
+                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone)
+            `)
+            .eq('doctor_id', userId)
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', today.toISOString())
+            .lt('scheduled_at', tomorrow.toISOString())
+            .order('scheduled_at', { ascending: true });
+
+        // Total patients (distinct)
+        const { data: patientData } = await supabase
+            .from('appointments')
+            .select('patient_id')
+            .eq('doctor_id', userId);
+        
+        const uniquePatients = patientData ? [...new Set(patientData.map(p => p.patient_id))] : [];
+        const patientCount = uniquePatients.length;
+
+        // Completed this month
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        const { count: completedCount } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('doctor_id', userId)
+            .eq('status', 'completed')
+            .gte('scheduled_at', thisMonth.toISOString());
+
+        // Unread messages
+        const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_id', userId)
+            .is('read_at', null);
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>🏥 Doctor Dashboard</h2>
+                    <p class="text-muted">Welcome back, Dr. ${authManager.getUserProfile().full_name}</p>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="dashboard-card" onclick="doctorManager.loadView('appointments')">
+                        <div class="icon">📅</div>
+                        <h4>${todayAppointments?.length || 0}</h4>
+                        <p>Today's Appointments</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="dashboard-card" onclick="doctorManager.loadView('patients')">
+                        <div class="icon">👥</div>
+                        <h4>${patientCount || 0}</h4>
+                        <p>Total Patients</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="dashboard-card">
+                        <div class="icon">✅</div>
+                        <h4>${completedCount || 0}</h4>
+                        <p>Completed This Month</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="dashboard-card" onclick="doctorManager.openChat()">
+                        <div class="icon">💬</div>
+                        <h4>${unreadCount || 0}</h4>
+                        <p>Unread Messages ${unreadCount > 0 ? '🔴' : ''}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">📋 Today's Schedule</h5>
+                            <span class="badge bg-primary">${todayAppointments?.length || 0} appointments</span>
+                        </div>
+                        <div class="card-body">
+                            ${todayAppointments && todayAppointments.length > 0
+                                ? todayAppointments.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">🎉</div>
+                                    <p class="text-muted">No appointments scheduled for today</p>
+                                    <p class="text-muted small">Enjoy your free time or catch up on patient records.</p>
+                                </div>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // =============================================
+    // RENDER PREMIUM APPOINTMENT CARD
+    // =============================================
     _renderAppointmentCard(apt, role = 'doctor') {
         const statusMap = {
             'scheduled': 'confirmed',
@@ -39,6 +246,7 @@ class DoctorManager {
         const timeStr = appointmentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const dateStr = appointmentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
+        // Doctor view actions
         const actions = role === 'doctor' ? `
             <div class="appointment-actions">
                 <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${patientName}')">
@@ -104,109 +312,18 @@ class DoctorManager {
         `;
     }
 
-    async loadDashboardContent(container) {
-        const userId = authManager.getUserId();
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const { data: todayAppointments } = await supabase
-            .from('appointments')
-            .select(`
-                *,
-                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone)
-            `)
-            .eq('doctor_id', userId)
-            .eq('status', 'scheduled')
-            .gte('scheduled_at', today.toISOString())
-            .lt('scheduled_at', tomorrow.toISOString())
-            .order('scheduled_at', { ascending: true });
-
-        const { data: patientData } = await supabase
-            .from('appointments')
-            .select('patient_id')
-            .eq('doctor_id', userId);
-        
-        const uniquePatients = patientData ? [...new Set(patientData.map(p => p.patient_id))] : [];
-        const patientCount = uniquePatients.length;
-
-        const thisMonth = new Date();
-        thisMonth.setDate(1);
-        const { count: completedCount } = await supabase
-            .from('appointments')
-            .select('*', { count: 'exact', head: true })
-            .eq('doctor_id', userId)
-            .eq('status', 'completed')
-            .gte('scheduled_at', thisMonth.toISOString());
-
-        const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('receiver_id', userId)
-            .is('read_at', null);
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>Doctor Dashboard</h2>
-                    <p class="text-muted">Welcome back, Dr. ${authManager.getUserProfile().full_name}</p>
-                </div>
-            </div>
-            <div class="row mt-4">
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="app.loadView('appointments')">
-                        <div class="icon"><i class="fas fa-calendar-check"></i></div>
-                        <h4>${todayAppointments?.length || 0}</h4>
-                        <p>Today's Appointments</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="app.loadView('patients')">
-                        <div class="icon"><i class="fas fa-user-injured"></i></div>
-                        <h4>${patientCount || 0}</h4>
-                        <p>Total Patients</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card">
-                        <div class="icon"><i class="fas fa-check-circle"></i></div>
-                        <h4>${completedCount || 0}</h4>
-                        <p>Completed This Month</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="doctorManager.openChat()">
-                        <div class="icon"><i class="fas fa-comment-dots"></i></div>
-                        <h4>${unreadCount || 0}</h4>
-                        <p>Unread Messages ${unreadCount > 0 ? '•' : ''}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">Today's Schedule</h5>
-                            <span class="badge bg-primary">${todayAppointments?.length || 0} appointments</span>
-                        </div>
-                        <div class="card-body">
-                            ${todayAppointments && todayAppointments.length > 0
-                                ? todayAppointments.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;"><i class="fas fa-calendar-day"></i></div>
-                                    <p class="text-muted">No appointments scheduled for today</p>
-                                    <p class="text-muted small">Enjoy your free time or catch up on patient records.</p>
-                                </div>`
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+    _getColor(name) {
+        const colors = ['#2563EB', '#7C3AED', '#DC2626', '#16A34A', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899'];
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
     }
 
+    // =============================================
+    // APPOINTMENTS
+    // =============================================
     async loadAppointmentsContent(container) {
         const userId = authManager.getUserId();
         
@@ -219,6 +336,7 @@ class DoctorManager {
             .eq('doctor_id', userId)
             .order('scheduled_at', { ascending: false });
 
+        // Split into upcoming and past
         const now = new Date();
         const upcoming = appointments?.filter(a => new Date(a.scheduled_at) > now && a.status === 'scheduled') || [];
         const today = appointments?.filter(a => {
@@ -231,11 +349,12 @@ class DoctorManager {
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
-                    <h2>My Appointments</h2>
+                    <h2>📅 My Appointments</h2>
                     <p class="text-muted">View and manage all your appointments</p>
                 </div>
             </div>
 
+            <!-- Stats -->
             <div class="row mt-3">
                 <div class="col-md-3 col-6 mb-2">
                     <div class="card text-center" style="padding:12px;">
@@ -263,28 +382,31 @@ class DoctorManager {
                 </div>
             </div>
 
+            <!-- Today's Appointments -->
             ${today.length > 0 ? `
             <div class="mt-4">
-                <h5>Today's Appointments</h5>
+                <h5>🟢 Today's Appointments</h5>
                 ${today.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')}
             </div>` : ''}
 
+            <!-- Upcoming Appointments -->
             ${upcoming.length > 0 ? `
             <div class="mt-4">
-                <h5>Upcoming Appointments</h5>
+                <h5>📅 Upcoming Appointments</h5>
                 ${upcoming.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')}
             </div>` : ''}
 
+            <!-- Past Appointments -->
             ${past.length > 0 ? `
             <div class="mt-4">
-                <h5>Past Appointments</h5>
+                <h5>📋 Past Appointments</h5>
                 ${past.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')}
             </div>` : ''}
 
             ${!today.length && !upcoming.length && !past.length ? `
                 <div class="card mt-4">
                     <div class="card-body text-center py-5">
-                        <div style="font-size:4rem;margin-bottom:16px;"><i class="fas fa-calendar-alt"></i></div>
+                        <div style="font-size:4rem;margin-bottom:16px;">📭</div>
                         <p class="text-muted">No appointments found</p>
                         <p class="text-muted small">Patients will book appointments with you through the system.</p>
                     </div>
@@ -293,6 +415,9 @@ class DoctorManager {
         `;
     }
 
+    // =============================================
+    // PATIENTS
+    // =============================================
     async loadPatientsContent(container) {
         const userId = authManager.getUserId();
         
@@ -304,6 +429,7 @@ class DoctorManager {
             `)
             .eq('doctor_id', userId);
 
+        // Get unique patients
         const patientMap = new Map();
         if (patients) {
             patients.forEach(p => {
@@ -317,7 +443,7 @@ class DoctorManager {
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
-                    <h2>My Patients</h2>
+                    <h2>👥 My Patients</h2>
                     <p class="text-muted">Manage your patients, write prescriptions, and schedule follow-ups</p>
                 </div>
             </div>
@@ -377,7 +503,7 @@ class DoctorManager {
                                     </table>
                                 </div>`
                                 : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;"><i class="fas fa-user-injured"></i></div>
+                                    <div style="font-size:3rem;margin-bottom:12px;">👥</div>
                                     <p class="text-muted">No patients found</p>
                                     <p class="text-muted small">Start by scheduling appointments with patients.</p>
                                 </div>`
@@ -389,9 +515,9 @@ class DoctorManager {
         `;
     }
 
-    // Write Prescription, Schedule Follow-up, Consultation, etc.
-    // Keep all existing methods but remove emojis from alerts and UI
-
+    // =============================================
+    // WRITE PRESCRIPTION
+    // =============================================
     writePrescription(patientId, patientName) {
         if (!patientId || patientId === 'undefined' || patientId === 'null') {
             alert('Error: Invalid patient ID. Please try again.');
@@ -402,7 +528,7 @@ class DoctorManager {
             <div class="modal-overlay" id="prescriptionModal">
                 <div class="modal">
                     <div class="modal-header" style="background:var(--success);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">Write Prescription - ${patientName || 'Patient'}</h5>
+                        <h5 class="modal-title" style="color:white;">💊 Write Prescription - ${patientName || 'Patient'}</h5>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
                     </div>
                     <div class="modal-body" style="margin-top:20px;">
@@ -458,7 +584,7 @@ class DoctorManager {
                             <div class="form-group">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="sendReminders" checked>
-                                    <label class="form-check-label" for="sendReminders">Send medication reminders</label>
+                                    <label class="form-check-label" for="sendReminders">🔔 Send medication reminders</label>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-success btn-block">
@@ -507,7 +633,7 @@ class DoctorManager {
             alert(result.message);
             if (result.success) {
                 document.getElementById('prescriptionModal').remove();
-                app.loadView('patients');
+                this.loadView('patients');
             }
         });
     }
@@ -542,11 +668,12 @@ class DoctorManager {
 
             if (error) throw error;
 
+            // Send notification to patient
             if (prescriptionData.send_reminders) {
                 await this.sendPrescriptionNotification(patientId, prescriptionData);
             }
 
-            return { success: true, message: 'Prescription saved successfully!' };
+            return { success: true, message: '✅ Prescription saved successfully!' };
         } catch (error) {
             console.error('Prescription error:', error);
             return { success: false, message: error.message || 'Failed to save prescription.' };
@@ -564,7 +691,7 @@ class DoctorManager {
 
             const doctorName = doctorData?.full_name || 'Doctor';
 
-            const messageContent = `New Prescription\n\nDr. ${doctorName} has prescribed:\n${prescriptionData.medication} - ${prescriptionData.dosage}\nTake ${prescriptionData.frequency}\nDuration: ${prescriptionData.duration}\n${prescriptionData.instructions}`;
+            const messageContent = `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${prescriptionData.medication} - ${prescriptionData.dosage}\n⏰ Take ${prescriptionData.frequency}\n📅 Duration: ${prescriptionData.duration}\n📝 ${prescriptionData.instructions}`;
 
             await supabase
                 .from('messages')
@@ -581,6 +708,9 @@ class DoctorManager {
         }
     }
 
+    // =============================================
+    // SCHEDULE FOLLOW-UP
+    // =============================================
     scheduleFollowUp(patientId, patientName) {
         if (!patientId || patientId === 'undefined' || patientId === 'null') {
             alert('Error: Invalid patient ID.');
@@ -591,7 +721,7 @@ class DoctorManager {
             <div class="modal-overlay" id="followUpModal">
                 <div class="modal">
                     <div class="modal-header" style="background:var(--warning);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">Schedule Follow-up - ${patientName || 'Patient'}</h5>
+                        <h5 class="modal-title" style="color:white;">📅 Schedule Follow-up - ${patientName || 'Patient'}</h5>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
                     </div>
                     <div class="modal-body" style="margin-top:20px;">
@@ -653,7 +783,7 @@ class DoctorManager {
             alert(result.message);
             if (result.success) {
                 document.getElementById('followUpModal').remove();
-                app.loadView('patients');
+                this.loadView('patients');
             }
         });
     }
@@ -682,19 +812,22 @@ class DoctorManager {
 
             if (error) throw error;
 
-            return { success: true, message: 'Follow-up scheduled successfully!' };
+            return { success: true, message: '✅ Follow-up scheduled successfully!' };
         } catch (error) {
             console.error('Follow-up error:', error);
             return { success: false, message: error.message || 'Failed to schedule follow-up.' };
         }
     }
 
+    // =============================================
+    // CONSULTATION MODAL
+    // =============================================
     openConsultationModal(appointmentId, patientId, patientName) {
         const modalHtml = `
             <div class="modal-overlay" id="consultationModal">
                 <div class="modal">
                     <div class="modal-header" style="background:var(--primary);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">Consultation - ${patientName}</h5>
+                        <h5 class="modal-title" style="color:white;">📋 Consultation - ${patientName}</h5>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
                     </div>
                     <div class="modal-body" style="margin-top:20px;">
@@ -729,7 +862,7 @@ class DoctorManager {
                             </div>
                             <div class="form-check mb-3">
                                 <input class="form-check-input" type="checkbox" id="completeAppointment">
-                                <label class="form-check-label" for="completeAppointment">Mark appointment as completed</label>
+                                <label class="form-check-label" for="completeAppointment">✅ Mark appointment as completed</label>
                             </div>
                             <button type="submit" class="btn btn-primary btn-block">
                                 <i class="fas fa-save"></i> Save Consultation
@@ -770,7 +903,7 @@ class DoctorManager {
             
             if (result.success) {
                 document.getElementById('consultationModal').remove();
-                app.loadView('appointments');
+                this.loadView('appointments');
             }
         });
     }
@@ -843,13 +976,16 @@ class DoctorManager {
                 if (updateError) throw updateError;
             }
 
-            return { success: true, message: 'Consultation saved successfully!' };
+            return { success: true, message: '✅ Consultation saved successfully!' };
         } catch (error) {
             console.error('Consultation save error:', error);
             return { success: false, message: error.message || 'Failed to save consultation.' };
         }
     }
 
+    // =============================================
+    // VIEW CONSULTATION
+    // =============================================
     async viewConsultation(appointmentId) {
         const { data: records } = await supabase
             .from('medical_records')
@@ -872,17 +1008,17 @@ class DoctorManager {
             <div class="modal-overlay" id="viewConsultationModal">
                 <div class="modal">
                     <div class="modal-header" style="background:var(--info);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">Consultation Notes</h5>
+                        <h5 class="modal-title" style="color:white;">📄 Consultation Notes</h5>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
                     </div>
                     <div class="modal-body" style="margin-top:20px;">
                         <p><strong>Doctor:</strong> ${record.doctor?.full_name || 'Unknown'}</p>
                         <p><strong>Date:</strong> ${new Date(record.created_at).toLocaleString()}</p>
                         <hr>
-                        <h6>SOAP Notes</h6>
+                        <h6>📝 SOAP Notes</h6>
                         <p style="background:var(--background);padding:16px;border-radius:var(--radius-sm);">${record.soap_notes || 'No notes available'}</p>
                         ${record.prescriptions && record.prescriptions.length > 0 ? `
-                            <h6>Prescriptions:</h6>
+                            <h6>💊 Prescriptions:</h6>
                             <ul>
                                 ${record.prescriptions.map(rx => `
                                     <li><strong>${rx.medication}</strong> - ${rx.dosage} (${rx.instructions || 'Take as directed'})</li>
@@ -900,6 +1036,9 @@ class DoctorManager {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
+    // =============================================
+    // VIEW PATIENT HISTORY
+    // =============================================
     async viewPatientHistory(patientId, patientName) {
         const { data: records } = await supabase
             .from('medical_records')
@@ -916,7 +1055,7 @@ class DoctorManager {
             <div class="modal-overlay" id="historyModal">
                 <div class="modal" style="max-width:700px;">
                     <div class="modal-header" style="background:var(--primary);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">Medical History - ${patientName}</h5>
+                        <h5 class="modal-title" style="color:white;">📄 Medical History - ${patientName}</h5>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
                     </div>
                     <div class="modal-body" style="margin-top:20px;">
@@ -930,7 +1069,7 @@ class DoctorManager {
                                         <p><strong>SOAP Notes:</strong></p>
                                         <p>${record.soap_notes || 'No notes available'}</p>
                                         ${record.prescriptions && record.prescriptions.length > 0 ? `
-                                            <p><strong>Prescriptions:</strong></p>
+                                            <p><strong>💊 Prescriptions:</strong></p>
                                             <ul>
                                                 ${record.prescriptions.map(rx => `
                                                     <li><strong>${rx.medication}</strong> - ${rx.dosage} (${rx.instructions || 'Take as directed'})</li>
@@ -941,7 +1080,7 @@ class DoctorManager {
                                 </div>
                             `).join('')
                             : `<div class="text-center py-4">
-                                <div style="font-size:3rem;margin-bottom:12px;"><i class="fas fa-file-medical"></i></div>
+                                <div style="font-size:3rem;margin-bottom:12px;">📭</div>
                                 <p class="text-muted">No medical records found for this patient</p>
                             </div>`
                         }
@@ -956,13 +1095,16 @@ class DoctorManager {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
+    // =============================================
+    // PROFILE
+    // =============================================
     async loadProfileContent(container) {
         const profile = authManager.getUserProfile();
         
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
-                    <h2>My Profile</h2>
+                    <h2>⚙️ My Profile</h2>
                 </div>
             </div>
             <div class="row mt-3">
@@ -1025,16 +1167,19 @@ class DoctorManager {
             authManager.userProfile.full_name = fullName;
             authManager.userProfile.phone = phone;
 
-            return { success: true, message: 'Profile updated successfully!' };
+            return { success: true, message: '✅ Profile updated successfully!' };
         } catch (error) {
             console.error('Profile update error:', error);
             return { success: false, message: error.message || 'Failed to update profile.' };
         }
     }
 
+    // =============================================
+    // VIDEO CALL
+    // =============================================
     joinVideoCall(appointmentId, roomId, patientName) {
         if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
-            alert('No video room found for this appointment.');
+            alert('❌ No video room found for this appointment.');
             return;
         }
         
@@ -1045,15 +1190,19 @@ class DoctorManager {
         const profile = authManager?.getUserProfile();
         const displayName = `Dr. ${profile?.full_name || 'Doctor'}`;
         
+        // Open video call in a new window/tab
         const videoUrl = `video-call.html?room=${roomId}&name=${encodeURIComponent(displayName)}&appointment=${appointmentId}`;
         window.open(videoUrl, '_blank', 'width=900,height=700');
     }
 
+    // =============================================
+    // CHAT
+    // =============================================
     openChat() {
         if (window.chatManager) {
             window.chatManager.showChatInterface();
         } else {
-            alert('Chat feature is being loaded. Please try again.');
+            alert(' Chat feature is being loaded. Please try again.');
         }
     }
 
@@ -1066,11 +1215,12 @@ class DoctorManager {
         if (window.chatManager) {
             window.chatManager.openChatWithUser(patientId);
         } else {
-            alert('Chat feature is being loaded. Please try again.');
+            alert('💬 Chat feature is being loaded. Please try again.');
         }
     }
 }
 
+// Initialize doctor manager
 const doctorManager = new DoctorManager();
 window.doctorManager = doctorManager;
-console.log('DoctorManager loaded');
+console.log('✅ DoctorManager initialized with premium UI');
