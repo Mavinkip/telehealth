@@ -1,5 +1,5 @@
 /*
- * File: patient.js - Complete with Medication Tracking
+ * File: patient.js - Complete with Navigation, Medications & Prescriptions
  */
 
 class PatientManager {
@@ -23,6 +23,18 @@ class PatientManager {
         }
 
         app.innerHTML = this.getDashboardHTML(profile);
+        
+        // Make sure content container exists
+        const contentContainer = document.getElementById('patientContent');
+        if (!contentContainer) {
+            const container = document.querySelector('.container.mt-4');
+            if (container) {
+                const newContent = document.createElement('div');
+                newContent.id = 'patientContent';
+                container.appendChild(newContent);
+            }
+        }
+        
         this.attachEvents();
         this.loadView('dashboard');
     }
@@ -46,7 +58,7 @@ class PatientManager {
                                 <a class="nav-link" href="#" data-view="appointments">📅 Appointments</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="medications">💊 Medications</a>
+                                <a class="nav-link" href="#" data-view="medications">💊 Prescriptions</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="#" data-view="chat">💬 Messages</a>
@@ -64,18 +76,21 @@ class PatientManager {
                 <div id="backButtonContainer" style="display:none; margin-bottom: 12px;">
                     <button class="btn btn-outline-secondary btn-sm" onclick="patientManager.goBack()">⬅️ Back</button>
                 </div>
-                <div id="patientContent"></div>
+                <div id="patientContent">
+                    <!-- Content will be loaded here -->
+                </div>
             </div>
         `;
     }
 
     attachEvents() {
+        // Navigation links - works like sidebar
         document.querySelectorAll('[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const view = link.dataset.view;
-                console.log('Navigating to:', view);
+                console.log('📱 Navigating to:', view);
                 this.loadView(view);
             });
         });
@@ -92,30 +107,36 @@ class PatientManager {
     }
 
     async loadView(view) {
-        console.log('Loading view:', view);
+        console.log('📱 Loading view:', view);
         const content = document.getElementById('patientContent');
+        
+        // If content doesn't exist, create it
         if (!content) {
-            console.error('Content element not found - recreating...');
+            console.log('⚠️ Content element not found - creating...');
             const container = document.querySelector('.container.mt-4');
             if (container) {
                 const newContent = document.createElement('div');
                 newContent.id = 'patientContent';
                 container.appendChild(newContent);
-                setTimeout(() => this.loadView(view), 100);
+                // Retry loading
+                setTimeout(() => this.loadView(view), 50);
                 return;
             }
             return;
         }
 
+        // Show back button for views other than dashboard
         const backBtn = document.getElementById('backButtonContainer');
         if (backBtn) {
             backBtn.style.display = view === 'dashboard' ? 'none' : 'block';
         }
 
+        // Update active nav
         document.querySelectorAll('[data-view]').forEach(link => {
             link.classList.toggle('active', link.dataset.view === view);
         });
 
+        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -125,11 +146,13 @@ class PatientManager {
             </div>
         `;
 
+        // Push to history
         this.viewHistory.push(view);
         if (this.viewHistory.length > 10) {
             this.viewHistory.shift();
         }
 
+        // Load the view
         try {
             switch(view) {
                 case 'dashboard':
@@ -139,7 +162,7 @@ class PatientManager {
                     await this.loadAppointmentsContent(content);
                     break;
                 case 'medications':
-                    await this.loadMedicalRecordsContent(content);
+                    await this.loadMedicationsContent(content);
                     break;
                 case 'chat':
                     await this.loadChatContent(content);
@@ -151,7 +174,7 @@ class PatientManager {
                     await this.loadDashboardContent(content);
             }
         } catch (error) {
-            console.error('Error loading view:', error);
+            console.error('❌ Error loading view:', error);
             content.innerHTML = `
                 <div class="alert alert-danger">
                     ❌ Error loading view: ${error.message}
@@ -171,7 +194,7 @@ class PatientManager {
     // CHAT CONTENT
     // =============================================
     async loadChatContent(container) {
-        console.log('Loading chat content...');
+        console.log('💬 Loading chat content...');
         
         container.innerHTML = `
             <div class="row">
@@ -181,7 +204,7 @@ class PatientManager {
                             <h5 class="mb-0">💬 Messages</h5>
                         </div>
                         <div class="card-body text-center py-5">
-                            <div style="font-size: 4rem; color: var(--text-lighter);">💬</div>
+                            <div style="font-size: 4rem;">💬</div>
                             <h5 class="mt-3">Chat Feature</h5>
                             <p class="text-muted">Connect with your doctors in real-time</p>
                             <div class="alert alert-info">ℹ️ Chat is being initialized. Please wait...</div>
@@ -205,7 +228,7 @@ class PatientManager {
     }
 
     // =============================================
-    // DASHBOARD - WITH MEDICATION REMINDERS
+    // DASHBOARD CONTENT
     // =============================================
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
@@ -222,7 +245,6 @@ class PatientManager {
             .order('scheduled_at', { ascending: true })
             .limit(3);
 
-        // Get today's medication schedule
         const { data: todaysMeds } = await supabase
             .from('medication_schedule')
             .select('*')
@@ -251,7 +273,6 @@ class PatientManager {
 
         const totalSpent = paidAppointments?.reduce((sum, apt) => sum + (apt.amount_paid || 0), 0) || 0;
 
-        // Get active prescriptions count
         const { count: activePrescriptions } = await supabase
             .from('prescriptions')
             .select('*', { count: 'exact', head: true })
@@ -265,7 +286,6 @@ class PatientManager {
                 </div>
             </div>
 
-            <!-- Medication Reminders - PROMINENT SECTION -->
             ${todaysMeds && todaysMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
@@ -283,9 +303,7 @@ class PatientManager {
                                             ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
                                         </div>
                                         <div>
-                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">
-                                                ✅ Mark Taken
-                                            </button>
+                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -349,7 +367,7 @@ class PatientManager {
                     <div class="card dashboard-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
                         <div class="card-body text-center">
                             <div class="icon">💊</div>
-                            <h4>Medications</h4>
+                            <h4>Prescriptions</h4>
                             <p class="text-muted small">View & Track</p>
                         </div>
                     </div>
@@ -420,6 +438,156 @@ class PatientManager {
     }
 
     // =============================================
+    // MEDICATIONS / PRESCRIPTIONS CONTENT
+    // =============================================
+    async loadMedicationsContent(container) {
+        console.log('💊 Loading medications & prescriptions...');
+        const userId = authManager.getUserId();
+        
+        // Get all prescriptions
+        const { data: prescriptions } = await supabase
+            .from('prescriptions')
+            .select(`
+                *,
+                doctor:profiles!prescriptions_doctor_id_fkey (full_name, specialty)
+            `)
+            .eq('patient_id', userId)
+            .order('issued_at', { ascending: false });
+
+        // Get medication schedule
+        const { data: medicationSchedule } = await supabase
+            .from('medication_schedule')
+            .select('*')
+            .eq('patient_id', userId)
+            .order('scheduled_time', { ascending: true });
+
+        const today = new Date().toISOString().split('T')[0];
+        const upcomingMeds = medicationSchedule?.filter(m => 
+            !m.taken && new Date(m.scheduled_time).toISOString().split('T')[0] === today
+        ) || [];
+        
+        const allUpcomingMeds = medicationSchedule?.filter(m => !m.taken) || [];
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>💊 Prescriptions & Medications</h2>
+                    <p class="text-muted">View all your prescriptions and medication schedule</p>
+                </div>
+            </div>
+
+            <!-- Today's Medication Schedule -->
+            ${upcomingMeds.length > 0 ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
+                                <span class="badge bg-light text-dark">${upcomingMeds.length} pending</span>
+                            </div>
+                            <div class="card-body">
+                                ${upcomingMeds.map(med => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                        <div>
+                                            <strong>💊 ${med.medication}</strong>
+                                            <br><small>${med.dosage} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                            ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">✅ Today's Medications</h5>
+                            </div>
+                            <div class="card-body text-center py-3">
+                                <p class="mb-0">🎉 No pending medications for today</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `}
+
+            <!-- All Prescriptions -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 All Prescriptions (${prescriptions?.length || 0})</h5>
+                        </div>
+                        <div class="card-body">
+                            ${prescriptions && prescriptions.length > 0
+                                ? prescriptions.map(rx => `
+                                    <div class="border-bottom pb-3 mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="mb-0">💊 ${rx.medication} - ${rx.dosage}</h6>
+                                                <p class="mb-0 small">
+                                                    <strong>👨‍⚕️ Doctor:</strong> ${rx.doctor?.full_name || 'Unknown'}
+                                                    <br><strong>⏰ Frequency:</strong> ${rx.frequency || 'As directed'}
+                                                    <br><strong>📅 Duration:</strong> ${rx.duration || 'N/A'}
+                                                    <br><strong>🍽️ When to take:</strong> ${rx.when_to_take || 'As directed'}
+                                                    <br><strong>📝 Instructions:</strong> ${rx.instructions || 'Take as directed'}
+                                                    ${rx.notes ? `<br><strong>📌 Notes:</strong> ${rx.notes}` : ''}
+                                                </p>
+                                                <small>📅 Issued: ${new Date(rx.issued_at).toLocaleDateString()}</small>
+                                            </div>
+                                            <div>
+                                                <span class="badge ${rx.duration_days ? 'bg-success' : 'bg-secondary'}">
+                                                    ${rx.duration_days ? '✅ Active' : 'Completed'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')
+                                : '<p class="text-muted text-center py-3">No prescriptions found</p>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Upcoming Medication Schedule -->
+            ${allUpcomingMeds.length > 0 ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">📅 Upcoming Medication Schedule (${allUpcomingMeds.length})</h5>
+                            </div>
+                            <div class="card-body">
+                                ${allUpcomingMeds.slice(0, 20).map(med => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                        <div>
+                                            <strong>💊 ${med.medication}</strong>
+                                            <br><small>${med.dosage} - 📅 ${new Date(med.scheduled_time).toLocaleDateString()} ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                        </div>
+                                        <div>
+                                            <span class="badge ${med.taken ? 'bg-success' : 'bg-warning'}">
+                                                ${med.taken ? '✅ Taken' : '⏳ Pending'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                ${allUpcomingMeds.length > 20 ? `<p class="text-muted mt-2">... and ${allUpcomingMeds.length - 20} more</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    // =============================================
     // MEDICATION TRACKING
     // =============================================
     async markMedicationTaken(scheduleId) {
@@ -435,162 +603,11 @@ class PatientManager {
             if (error) throw error;
 
             alert('✅ Medication marked as taken!');
-            this.loadView('dashboard');
+            this.loadView('medications');
         } catch (error) {
             console.error('Error marking medication:', error);
             alert('❌ Failed to mark medication as taken.');
         }
-    }
-
-    // =============================================
-    // MEDICAL RECORDS WITH MEDICATIONS
-    // =============================================
-    async loadMedicalRecordsContent(container) {
-        console.log('Loading medical records...');
-        const userId = authManager.getUserId();
-        
-        // Get medical records with prescriptions
-        const { data: records } = await supabase
-            .from('medical_records')
-            .select(`
-                *,
-                doctor:profiles!medical_records_doctor_id_fkey (full_name, specialty),
-                appointment:appointments (scheduled_at),
-                prescriptions:prescriptions (*)
-            `)
-            .eq('patient_id', userId)
-            .order('created_at', { ascending: false });
-
-        // Get standalone prescriptions (not linked to medical records)
-        const { data: standalonePrescriptions } = await supabase
-            .from('prescriptions')
-            .select(`
-                *,
-                doctor:profiles!prescriptions_doctor_id_fkey (full_name, specialty)
-            `)
-            .eq('patient_id', userId)
-            .is('appointment_id', null)
-            .order('issued_at', { ascending: false });
-
-        // Get medication schedule (reminders)
-        const { data: medicationSchedule } = await supabase
-            .from('medication_schedule')
-            .select('*')
-            .eq('patient_id', userId)
-            .order('scheduled_time', { ascending: true });
-
-        const today = new Date().toISOString().split('T')[0];
-        const upcomingMeds = medicationSchedule?.filter(m => 
-            !m.taken && new Date(m.scheduled_time).toISOString().split('T')[0] === today
-        ) || [];
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>💊 Medications & Medical Records</h2>
-                </div>
-            </div>
-
-            <!-- Today's Medication Schedule -->
-            ${upcomingMeds.length > 0 ? `
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card border-success">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
-                            </div>
-                            <div class="card-body">
-                                ${upcomingMeds.map(med => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                                        <div>
-                                            <strong>💊 ${med.medication}</strong>
-                                            <br><small>${med.dosage}</small>
-                                            <br><small>⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
-                                            ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
-                                        </div>
-                                        <div>
-                                            ${!med.taken ? `
-                                                <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
-                                            ` : `
-                                                <span class="badge bg-success">✅ Taken</span>
-                                            `}
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ` : ''}
-
-            <!-- Active Prescriptions -->
-            ${standalonePrescriptions && standalonePrescriptions.length > 0 ? `
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card border-info">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="mb-0">📋 Active Prescriptions</h5>
-                            </div>
-                            <div class="card-body">
-                                ${standalonePrescriptions.map(rx => `
-                                    <div class="border-bottom pb-2 mb-2">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="mb-0">💊 ${rx.medication} - ${rx.dosage}</h6>
-                                                <p class="mb-0 small">
-                                                    <strong>👨‍⚕️ Doctor:</strong> ${rx.doctor?.full_name}
-                                                    <br><strong>⏰ Frequency:</strong> ${rx.frequency || 'As directed'}
-                                                    <br><strong>📅 Duration:</strong> ${rx.duration || 'N/A'}
-                                                    <br><strong>📝 Instructions:</strong> ${rx.instructions || 'Take as directed'}
-                                                    ${rx.notes ? `<br><strong>📌 Notes:</strong> ${rx.notes}` : ''}
-                                                </p>
-                                                <small>📅 Issued: ${new Date(rx.issued_at).toLocaleDateString()}</small>
-                                            </div>
-                                            <div>
-                                                <span class="badge bg-success">✅ Active</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ` : ''}
-
-            <!-- Medical Records -->
-            <div class="row mt-3">
-                <div class="col-12">
-                    <h4>📄 Medical Records</h4>
-                    ${records && records.length > 0
-                        ? records.map(record => `
-                            <div class="card mb-3">
-                                <div class="card-header">
-                                    <h6 class="mb-0">👨‍⚕️ ${record.doctor.full_name} - ${record.doctor.specialty}</h6>
-                                    <small>📅 ${new Date(record.created_at).toLocaleString()}</small>
-                                </div>
-                                <div class="card-body">
-                                    <h6>📝 SOAP Notes</h6>
-                                    <p class="small">${record.soap_notes || 'No notes available'}</p>
-                                    ${record.prescriptions && record.prescriptions.length > 0 ? `
-                                        <h6 class="mt-3">💊 Prescriptions</h6>
-                                        <ul class="small">
-                                            ${record.prescriptions.map(rx => `
-                                                <li>
-                                                    <strong>💊 ${rx.medication}</strong> - ${rx.dosage}
-                                                    <br><small>${rx.instructions}</small>
-                                                </li>
-                                            `).join('')}
-                                        </ul>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        `).join('')
-                        : '<div class="alert alert-info">ℹ️ No medical records found</div>'
-                    }
-                </div>
-            </div>
-        `;
     }
 
     // =============================================
