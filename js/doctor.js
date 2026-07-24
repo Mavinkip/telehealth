@@ -1,10 +1,11 @@
 /*
- * File: doctor.js - Complete with Prescriptions & Medication Scheduling
+ * File: doctor.js - Complete with Sidebar Layout & Prescriptions
  */
 
 class DoctorManager {
     constructor() {
         this.currentView = 'dashboard';
+        this.isSidebarOpen = true;
     }
 
     showDashboard() {
@@ -16,90 +17,290 @@ class DoctorManager {
             return;
         }
 
-        app.innerHTML = `
-            <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-                <div class="container">
-                    <a class="navbar-brand" href="#" onclick="doctorManager.loadView('dashboard'); return false;">
-                        🏥 Telehealth
-                    </a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav me-auto">
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="dashboard">📊 Dashboard</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="appointments">📅 Appointments</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="patients">👥 Patients</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="chat">💬 Messages</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="profile">⚙️ Profile</a>
-                            </li>
-                        </ul>
-                        <span class="navbar-text me-3">👨‍⚕️ Dr. ${profile.full_name}</span>
-                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 Logout</button>
-                    </div>
-                </div>
-            </nav>
-            <div class="container mt-4">
-                <div id="backButtonContainer" style="display:none; margin-bottom: 12px;">
-                    <button class="btn btn-outline-secondary btn-sm" onclick="doctorManager.goBack()">⬅️ Back</button>
-                </div>
-                <div id="doctorContent"></div>
-            </div>
-        `;
+        app.innerHTML = this.getDashboardHTML(profile);
+        
+        setTimeout(() => {
+            this.attachEvents();
+            this.loadView('dashboard');
+        }, 100);
+    }
 
-        document.querySelectorAll('[data-view]').forEach(link => {
+    getDashboardHTML(profile) {
+        return `
+            <div class="app-layout doctor-layout">
+                <!-- Sidebar -->
+                <aside class="sidebar" id="doctorSidebar">
+                    <div class="sidebar-header">
+                        <div class="brand">
+                            <span class="brand-icon">🏥</span>
+                            <span class="brand-text">TeleHealth</span>
+                        </div>
+                        <button class="sidebar-toggle" id="sidebarToggle">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    </div>
+                    <nav class="sidebar-nav">
+                        <div class="nav-section-title">Main Menu</div>
+                        <button class="nav-item active" data-view="dashboard">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-label">Dashboard</span>
+                        </button>
+                        <button class="nav-item" data-view="appointments">
+                            <span class="nav-icon">📅</span>
+                            <span class="nav-label">Appointments</span>
+                        </button>
+                        <button class="nav-item" data-view="patients">
+                            <span class="nav-icon">👥</span>
+                            <span class="nav-label">Patients</span>
+                        </button>
+                        <button class="nav-item" data-view="chat">
+                            <span class="nav-icon">💬</span>
+                            <span class="nav-label">Messages</span>
+                        </button>
+                        <button class="nav-item" data-view="profile">
+                            <span class="nav-icon">⚙️</span>
+                            <span class="nav-label">Profile</span>
+                        </button>
+                    </nav>
+                    <div class="sidebar-footer">
+                        <button class="nav-item" id="logoutBtn">
+                            <span class="nav-icon">🚪</span>
+                            <span class="nav-label">Logout</span>
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="main-content">
+                    <header class="top-header">
+                        <div class="header-left">
+                            <button class="hamburger" id="hamburgerBtn">
+                                <i class="fas fa-bars"></i>
+                            </button>
+                            <span class="page-title" id="pageTitle">Dashboard</span>
+                        </div>
+                        <div class="header-right">
+                            <div class="user-profile">
+                                <div class="avatar" style="background: #2563EB;">${profile.full_name?.charAt(0) || 'D'}</div>
+                                <div class="user-info">
+                                    <span class="name">Dr. ${profile.full_name}</span>
+                                    <span class="role">Doctor</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div class="content-area" id="doctorContent">
+                        <!-- Dynamic content -->
+                    </div>
+                </main>
+            </div>
+
+            <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        `;
+    }
+
+    attachEvents() {
+        document.querySelectorAll('.nav-item[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const view = link.dataset.view;
+                console.log('📱 Navigating to:', view);
+                
+                document.querySelectorAll('.nav-item[data-view]').forEach(l => {
+                    l.classList.remove('active');
+                });
+                link.classList.add('active');
+                
                 this.loadView(view);
+                this.closeMobileSidebar();
             });
         });
 
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            const result = await authManager.logout();
-            if (result.success) window.location.reload();
-        });
+        const toggleBtn = document.getElementById('sidebarToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
 
-        this.loadView('dashboard');
+        const hamburger = document.getElementById('hamburgerBtn');
+        if (hamburger) {
+            hamburger.addEventListener('click', () => {
+                this.toggleMobileSidebar();
+            });
+        }
+
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                this.closeMobileSidebar();
+            });
+        }
+
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                const result = await authManager.logout();
+                if (result.success) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 992) {
+                this.closeMobileSidebar();
+            }
+        });
     }
 
-    async loadView(view) {
-        const content = document.getElementById('doctorContent');
-        if (!content) return;
+    toggleSidebar() {
+        const sidebar = document.getElementById('doctorSidebar');
+        const mainContent = document.querySelector('.main-content');
         
-        switch(view) {
-            case 'dashboard':
-                await this.loadDashboardContent(content);
-                break;
-            case 'appointments':
-                await this.loadAppointmentsContent(content);
-                break;
-            case 'patients':
-                await this.loadPatientsContent(content);
-                break;
-            case 'chat':
-                this.openChat();
-                break;
-            case 'profile':
-                await this.loadProfileContent(content);
-                break;
-            default:
-                await this.loadDashboardContent(content);
+        if (window.innerWidth > 992) {
+            this.isSidebarOpen = !this.isSidebarOpen;
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            const icon = document.getElementById('sidebarToggle')?.querySelector('i');
+            if (icon) {
+                icon.className = this.isSidebarOpen ? 'fas fa-chevron-left' : 'fas fa-chevron-right';
+            }
         }
     }
 
-    goBack() {
-        this.loadView('dashboard');
+    toggleMobileSidebar() {
+        const sidebar = document.getElementById('doctorSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) {
+            sidebar.classList.toggle('open');
+        }
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
+    }
+
+    closeMobileSidebar() {
+        const sidebar = document.getElementById('doctorSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) {
+            sidebar.classList.remove('open');
+        }
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    }
+
+    async loadView(view) {
+        console.log('📱 Loading view:', view);
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const content = document.getElementById('doctorContent');
+        if (!content) {
+            console.error('❌ Content element not found');
+            return;
+        }
+
+        const titleMap = {
+            'dashboard': 'Dashboard',
+            'appointments': 'Appointments',
+            'patients': 'Patients',
+            'chat': 'Messages',
+            'profile': 'Profile'
+        };
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle) {
+            pageTitle.textContent = titleMap[view] || 'Dashboard';
+        }
+
+        content.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2">Loading...</p>
+            </div>
+        `;
+
+        try {
+            switch(view) {
+                case 'dashboard':
+                    await this.loadDashboardContent(content);
+                    break;
+                case 'appointments':
+                    await this.loadAppointmentsContent(content);
+                    break;
+                case 'patients':
+                    await this.loadPatientsContent(content);
+                    break;
+                case 'chat':
+                    await this.loadChatContent(content);
+                    break;
+                case 'profile':
+                    await this.loadProfileContent(content);
+                    break;
+                default:
+                    await this.loadDashboardContent(content);
+            }
+        } catch (error) {
+            console.error('❌ Error loading view:', error);
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    ❌ Error loading view: ${error.message}
+                </div>
+                <button class="btn btn-primary mt-3" onclick="doctorManager.loadView('dashboard')">⬅️ Back to Dashboard</button>
+            `;
+        }
+    }
+
+    // =============================================
+    // CHAT CONTENT
+    // =============================================
+    async loadChatContent(container) {
+        console.log('💬 Loading chat content...');
+        
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">💬 Messages</h5>
+                        </div>
+                        <div class="card-body text-center py-5">
+                            <div style="font-size: 4rem;">💬</div>
+                            <h5 class="mt-3">Chat Feature</h5>
+                            <p class="text-muted">Connect with your patients in real-time</p>
+                            <div class="alert alert-info">ℹ️ Chat is being initialized. Please wait...</div>
+                            <button class="btn btn-primary mt-3" onclick="doctorManager.loadView('chat')">🔄 Retry</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (window.chatManager && typeof window.chatManager.showChatInterface === 'function') {
+            setTimeout(() => {
+                try {
+                    window.chatManager.showChatInterface();
+                } catch (error) {
+                    console.error('Chat load error:', error);
+                }
+            }, 500);
+        }
+    }
+
+    openChat() {
+        this.loadView('chat');
+    }
+
+    openChatWithPatient(patientId) {
+        this.loadView('chat');
     }
 
     // =============================================
@@ -148,7 +349,6 @@ class DoctorManager {
             .eq('receiver_id', userId)
             .is('read_at', null);
 
-        // Get total prescriptions written
         const { count: prescriptionCount } = await supabase
             .from('prescriptions')
             .select('*', { count: 'exact', head: true })
@@ -184,7 +384,7 @@ class DoctorManager {
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="doctorManager.openChat()" style="cursor:pointer;">
+                    <div class="dashboard-card" onclick="doctorManager.loadView('chat')" style="cursor:pointer;">
                         <div class="icon">💬</div>
                         <h4>${unreadCount || 0}</h4>
                         <p>Unread Messages ${unreadCount > 0 ? '🔴' : ''}</p>
@@ -236,7 +436,7 @@ class DoctorManager {
         const timeStr = appointmentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const dateStr = appointmentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
-        const actions = role === 'doctor' ? `
+        const actions = `
             <div class="appointment-actions">
                 <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${patientName}')">
                     🎥 Start Call
@@ -247,11 +447,11 @@ class DoctorManager {
                 <button class="btn btn-sm btn-success" onclick="doctorManager.writePrescription('${apt.patient_id}', '${patientName}')">
                     💊 Prescribe
                 </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="doctorManager.openChatWithPatient('${apt.patient_id}')">
+                <button class="btn btn-sm btn-outline-secondary" onclick="doctorManager.loadView('chat')">
                     💬 Message
                 </button>
             </div>
-        ` : '';
+        `;
 
         return `
             <div class="appointment-card status-${statusClass}">
@@ -360,7 +560,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // PATIENTS - WITH PRESCRIPTION BUTTON
+    // PATIENTS
     // =============================================
     async loadPatientsContent(container) {
         const userId = authManager.getUserId();
@@ -426,7 +626,7 @@ class DoctorManager {
                                                             <button class="btn btn-sm btn-warning" onclick="doctorManager.scheduleFollowUp('${patient.id}', '${patient.full_name || 'Patient'}')">
                                                                 📅 Follow-up
                                                             </button>
-                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.openChatWithPatient('${patient.id}')">
+                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">
                                                                 💬 Message
                                                             </button>
                                                         </div>
@@ -1216,30 +1416,6 @@ class DoctorManager {
         
         const videoUrl = `video-call.html?room=${roomId}&name=${encodeURIComponent(displayName)}&appointment=${appointmentId}`;
         window.open(videoUrl, '_blank', 'width=900,height=700');
-    }
-
-    // =============================================
-    // CHAT
-    // =============================================
-    openChat() {
-        if (window.chatManager) {
-            window.chatManager.showChatInterface();
-        } else {
-            alert('💬 Chat feature is being loaded. Please try again.');
-        }
-    }
-
-    openChatWithPatient(patientId) {
-        if (!patientId) {
-            alert('Invalid patient.');
-            return;
-        }
-        
-        if (window.chatManager) {
-            window.chatManager.openChatWithUser(patientId);
-        } else {
-            alert('💬 Chat feature is being loaded. Please try again.');
-        }
     }
 }
 
