@@ -24,19 +24,13 @@ class PatientManager {
 
         app.innerHTML = this.getDashboardHTML(profile);
         
-        // Make sure content container exists
-        const contentContainer = document.getElementById('patientContent');
-        if (!contentContainer) {
-            const container = document.querySelector('.container.mt-4');
-            if (container) {
-                const newContent = document.createElement('div');
-                newContent.id = 'patientContent';
-                container.appendChild(newContent);
-            }
-        }
-        
+        // Attach events after DOM is rendered
         this.attachEvents();
-        this.loadView('dashboard');
+        
+        // Load initial view after DOM is ready
+        setTimeout(() => {
+            this.loadView('dashboard');
+        }, 100);
     }
 
     getDashboardHTML(profile) {
@@ -84,7 +78,7 @@ class PatientManager {
     }
 
     attachEvents() {
-        // Navigation links - works like sidebar
+        // Navigation links
         document.querySelectorAll('[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -108,23 +102,61 @@ class PatientManager {
 
     async loadView(view) {
         console.log('📱 Loading view:', view);
+        
+        // Wait for DOM to be ready
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         const content = document.getElementById('patientContent');
         
-        // If content doesn't exist, create it
+        // If content doesn't exist, try to find or create it
         if (!content) {
-            console.log('⚠️ Content element not found - creating...');
+            console.log('⚠️ Content element not found - searching...');
+            
+            // Try to find it again after a short delay
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const retryContent = document.getElementById('patientContent');
+            
+            if (retryContent) {
+                console.log('✅ Found content element on retry');
+                this._renderView(view, retryContent);
+                return;
+            }
+            
+            // If still not found, create it
+            console.log('🔄 Creating content element...');
             const container = document.querySelector('.container.mt-4');
             if (container) {
+                // Check if back button container exists
+                let backContainer = document.getElementById('backButtonContainer');
+                if (!backContainer) {
+                    backContainer = document.createElement('div');
+                    backContainer.id = 'backButtonContainer';
+                    backContainer.style.display = 'none';
+                    backContainer.style.marginBottom = '12px';
+                    backContainer.innerHTML = `
+                        <button class="btn btn-outline-secondary btn-sm" onclick="patientManager.goBack()">⬅️ Back</button>
+                    `;
+                    container.prepend(backContainer);
+                }
+                
+                // Create content container
                 const newContent = document.createElement('div');
                 newContent.id = 'patientContent';
                 container.appendChild(newContent);
-                // Retry loading
-                setTimeout(() => this.loadView(view), 50);
+                
+                console.log('✅ Created new content element');
+                this._renderView(view, newContent);
                 return;
             }
+            
+            console.error('❌ Could not find or create content container');
             return;
         }
+        
+        this._renderView(view, content);
+    }
 
+    _renderView(view, content) {
         // Show back button for views other than dashboard
         const backBtn = document.getElementById('backButtonContainer');
         if (backBtn) {
@@ -156,22 +188,22 @@ class PatientManager {
         try {
             switch(view) {
                 case 'dashboard':
-                    await this.loadDashboardContent(content);
+                    this.loadDashboardContent(content);
                     break;
                 case 'appointments':
-                    await this.loadAppointmentsContent(content);
+                    this.loadAppointmentsContent(content);
                     break;
                 case 'medications':
-                    await this.loadMedicationsContent(content);
+                    this.loadMedicationsContent(content);
                     break;
                 case 'chat':
-                    await this.loadChatContent(content);
+                    this.loadChatContent(content);
                     break;
                 case 'profile':
-                    await this.loadProfileContent(content);
+                    this.loadProfileContent(content);
                     break;
                 default:
-                    await this.loadDashboardContent(content);
+                    this.loadDashboardContent(content);
             }
         } catch (error) {
             console.error('❌ Error loading view:', error);
@@ -193,7 +225,7 @@ class PatientManager {
     // =============================================
     // CHAT CONTENT
     // =============================================
-    async loadChatContent(container) {
+    loadChatContent(container) {
         console.log('💬 Loading chat content...');
         
         container.innerHTML = `
