@@ -1,5 +1,5 @@
 /*
- * File: doctor.js - Complete Doctor Manager with Fixed Prescription Form & History
+ * File: doctor.js - Complete Doctor Manager with FIXED Prescription Form
  */
 
 class DoctorManager {
@@ -726,7 +726,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // PRESCRIPTION MODAL - FIXED!
+    // PRESCRIPTION MODAL - FIXED WITH DIRECT HTML
     // =============================================
     showPrescriptionModal(patientId, patientName) {
         console.log('📝 Opening prescription modal for:', patientName, 'ID:', patientId);
@@ -742,217 +742,201 @@ class DoctorManager {
             existingModal.remove();
         }
 
-        const modalHtml = `
-            <div class="modal-overlay" id="prescriptionModal" style="
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.6);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 99999;
-                padding: 20px;
-                animation: fadeIn 0.3s ease;
+        // Create modal element directly
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'prescriptionModal';
+        modalOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        modalOverlay.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 20px;
+                padding: 32px;
+                max-width: 650px;
+                width: 100%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+                animation: slideUp 0.3s ease;
+                position: relative;
             ">
-                <div class="modal" style="
-                    background: white;
-                    border-radius: 20px;
-                    padding: 32px;
-                    max-width: 650px;
-                    width: 100%;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 30px 80px rgba(0,0,0,0.3);
-                    animation: slideUp 0.3s ease;
-                    position: relative;
+                <!-- Header -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    border-bottom: 2px solid #10B981;
+                    padding-bottom: 16px;
+                    margin-bottom: 20px;
                 ">
-                    <!-- Modal Header -->
-                    <div style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        border-bottom: 2px solid var(--success);
-                        padding-bottom: 16px;
-                        margin-bottom: 20px;
-                    ">
-                        <div>
-                            <h5 style="
-                                font-size: 1.3rem;
-                                font-weight: 700;
-                                margin: 0;
-                                color: var(--text);
-                            ">
-                                💊 Write Prescription
-                            </h5>
-                            <small style="
-                                display: block;
-                                font-size: 0.85rem;
-                                color: var(--text-light);
-                                font-weight: normal;
-                                margin-top: 2px;
-                            ">
-                                For: ${patientName || 'Patient'}
-                            </small>
-                        </div>
-                        <button onclick="document.getElementById('prescriptionModal').remove()" style="
-                            background: none;
-                            border: none;
-                            font-size: 1.8rem;
-                            cursor: pointer;
-                            color: var(--text-light);
-                            padding: 0 8px;
-                            transition: var(--transition);
-                            line-height: 1;
-                        " onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-light)'">
-                            ×
-                        </button>
+                    <div>
+                        <h5 style="font-size: 1.3rem; font-weight: 700; margin: 0; color: #0F172A;">
+                            💊 Write Prescription
+                        </h5>
+                        <small style="display: block; font-size: 0.85rem; color: #64748B; margin-top: 2px;">
+                            For: ${patientName || 'Patient'}
+                        </small>
                     </div>
-
-                    <!-- Modal Body -->
-                    <div style="padding-top: 4px;">
-                        <form id="prescriptionForm">
-                            <input type="hidden" id="prescriptionPatientId" value="${patientId}">
-                            
-                            <!-- Medication Name -->
-                            <div style="margin-bottom: 16px;">
-                                <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                    💊 Medication Name *
-                                </label>
-                                <input type="text" id="medicationName" class="form-control" 
-                                    placeholder="e.g., Amoxicillin, Lisinopril, Metformin" required
-                                    style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;transition:var(--transition);background:var(--background);font-family:var(--font-family);"
-                                    onfocus="this.style.borderColor='var(--primary)'"
-                                    onblur="this.style.borderColor='var(--border)'">
-                            </div>
-
-                            <!-- Dosage -->
-                            <div style="margin-bottom: 16px;">
-                                <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                    📏 Dosage & Strength *
-                                </label>
-                                <input type="text" id="dosage" class="form-control" 
-                                    placeholder="e.g., 500mg, 10mg, 25mg/5ml" required
-                                    style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;transition:var(--transition);background:var(--background);font-family:var(--font-family);"
-                                    onfocus="this.style.borderColor='var(--primary)'"
-                                    onblur="this.style.borderColor='var(--border)'">
-                            </div>
-
-                            <!-- Frequency + Duration -->
-                            <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
-                                <div style="flex:1;min-width:150px;">
-                                    <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                        ⏰ Frequency *
-                                    </label>
-                                    <select id="frequency" class="form-control" required style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;background:var(--background);font-family:var(--font-family);">
-                                        <option value="Once daily">Once daily</option>
-                                        <option value="Twice daily" selected>Twice daily</option>
-                                        <option value="Three times daily">Three times daily</option>
-                                        <option value="Four times daily">Four times daily</option>
-                                        <option value="Every 6 hours">Every 6 hours</option>
-                                        <option value="Every 8 hours">Every 8 hours</option>
-                                        <option value="Every 12 hours">Every 12 hours</option>
-                                        <option value="As needed">As needed</option>
-                                    </select>
-                                </div>
-                                <div style="flex:1;min-width:150px;">
-                                    <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                        📅 Duration *
-                                    </label>
-                                    <select id="duration" class="form-control" required style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;background:var(--background);font-family:var(--font-family);">
-                                        <option value="3 days">3 days</option>
-                                        <option value="5 days">5 days</option>
-                                        <option value="7 days" selected>7 days</option>
-                                        <option value="10 days">10 days</option>
-                                        <option value="14 days">14 days</option>
-                                        <option value="21 days">21 days</option>
-                                        <option value="30 days">30 days</option>
-                                        <option value="60 days">60 days</option>
-                                        <option value="90 days">90 days</option>
-                                        <option value="Ongoing">Ongoing</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <!-- When to Take -->
-                            <div style="margin-bottom:16px;">
-                                <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                    🍽️ When to Take
-                                </label>
-                                <select id="whenToTake" class="form-control" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;background:var(--background);font-family:var(--font-family);">
-                                    <option value="After meals" selected>After meals</option>
-                                    <option value="Before meals">Before meals</option>
-                                    <option value="With food">With food</option>
-                                    <option value="On empty stomach">On empty stomach</option>
-                                    <option value="At bedtime">At bedtime</option>
-                                    <option value="In the morning">In the morning</option>
-                                    <option value="In the evening">In the evening</option>
-                                </select>
-                            </div>
-
-                            <!-- Instructions -->
-                            <div style="margin-bottom:16px;">
-                                <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                    📝 Special Instructions
-                                </label>
-                                <textarea id="instructions" class="form-control" rows="3" 
-                                    placeholder="e.g., Take with plenty of water, Avoid alcohol, Complete full course..."
-                                    style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;transition:var(--transition);background:var(--background);font-family:var(--font-family);resize:vertical;"
-                                    onfocus="this.style.borderColor='var(--primary)'"
-                                    onblur="this.style.borderColor='var(--border)'"></textarea>
-                            </div>
-
-                            <!-- Notes -->
-                            <div style="margin-bottom:16px;">
-                                <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:var(--text);">
-                                    📌 Additional Notes
-                                </label>
-                                <textarea id="notes" class="form-control" rows="2" 
-                                    placeholder="Any additional notes or warnings..."
-                                    style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:1rem;transition:var(--transition);background:var(--background);font-family:var(--font-family);resize:vertical;"
-                                    onfocus="this.style.borderColor='var(--primary)'"
-                                    onblur="this.style.borderColor='var(--border)'"></textarea>
-                            </div>
-
-                            <!-- Send Reminders -->
-                            <div style="display:flex;align-items:center;gap:10px;margin:16px 0;padding:12px;background:var(--background);border-radius:8px;">
-                                <input type="checkbox" id="sendReminders" checked style="width:18px;height:18px;cursor:pointer;">
-                                <label for="sendReminders" style="font-weight:500;font-size:0.9rem;cursor:pointer;color:var(--text);">
-                                    🔔 Send medication reminders to patient
-                                </label>
-                            </div>
-
-                            <!-- Submit Button -->
-                            <button type="submit" style="
-                                width:100%;
-                                padding:14px;
-                                background:var(--success);
-                                color:white;
-                                border:none;
-                                border-radius:8px;
-                                font-size:1rem;
-                                font-weight:600;
-                                cursor:pointer;
-                                transition:var(--transition);
-                                font-family:var(--font-family);
-                                display:flex;
-                                align-items:center;
-                                justify-content:center;
-                                gap:8px;
-                            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(16,185,129,0.35)'" 
-                               onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
-                                💾 Save Prescription & Schedule Reminders
-                            </button>
-                        </form>
-                    </div>
+                    <button onclick="document.getElementById('prescriptionModal').remove()" style="
+                        background: none;
+                        border: none;
+                        font-size: 2rem;
+                        cursor: pointer;
+                        color: #94A3B8;
+                        padding: 0 8px;
+                        transition: 0.3s;
+                        line-height: 1;
+                    " onmouseover="this.style.color='#0F172A'" onmouseout="this.style.color='#94A3B8'">
+                        ×
+                    </button>
                 </div>
+
+                <!-- Form -->
+                <form id="prescriptionForm">
+                    <input type="hidden" id="prescriptionPatientId" value="${patientId}">
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                            💊 Medication Name *
+                        </label>
+                        <input type="text" id="medicationName" 
+                            placeholder="e.g., Amoxicillin, Lisinopril, Metformin" 
+                            style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;"
+                            onfocus="this.style.borderColor='#2563EB'"
+                            onblur="this.style.borderColor='#E2E8F0'">
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                            📏 Dosage & Strength *
+                        </label>
+                        <input type="text" id="dosage" 
+                            placeholder="e.g., 500mg, 10mg, 25mg/5ml" 
+                            style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;"
+                            onfocus="this.style.borderColor='#2563EB'"
+                            onblur="this.style.borderColor='#E2E8F0'">
+                    </div>
+
+                    <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:150px;">
+                            <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                                ⏰ Frequency *
+                            </label>
+                            <select id="frequency" style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;">
+                                <option value="Once daily">Once daily</option>
+                                <option value="Twice daily" selected>Twice daily</option>
+                                <option value="Three times daily">Three times daily</option>
+                                <option value="Four times daily">Four times daily</option>
+                                <option value="Every 6 hours">Every 6 hours</option>
+                                <option value="Every 8 hours">Every 8 hours</option>
+                                <option value="Every 12 hours">Every 12 hours</option>
+                                <option value="As needed">As needed</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;min-width:150px;">
+                            <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                                📅 Duration *
+                            </label>
+                            <select id="duration" style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;">
+                                <option value="3 days">3 days</option>
+                                <option value="5 days">5 days</option>
+                                <option value="7 days" selected>7 days</option>
+                                <option value="10 days">10 days</option>
+                                <option value="14 days">14 days</option>
+                                <option value="21 days">21 days</option>
+                                <option value="30 days">30 days</option>
+                                <option value="60 days">60 days</option>
+                                <option value="90 days">90 days</option>
+                                <option value="Ongoing">Ongoing</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                            🍽️ When to Take
+                        </label>
+                        <select id="whenToTake" style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;">
+                            <option value="After meals" selected>After meals</option>
+                            <option value="Before meals">Before meals</option>
+                            <option value="With food">With food</option>
+                            <option value="On empty stomach">On empty stomach</option>
+                            <option value="At bedtime">At bedtime</option>
+                            <option value="In the morning">In the morning</option>
+                            <option value="In the evening">In the evening</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                            📝 Special Instructions
+                        </label>
+                        <textarea id="instructions" rows="3" 
+                            placeholder="e.g., Take with plenty of water, Avoid alcohol, Complete full course..."
+                            style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;resize:vertical;"
+                            onfocus="this.style.borderColor='#2563EB'"
+                            onblur="this.style.borderColor='#E2E8F0'"></textarea>
+                    </div>
+
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                            📌 Additional Notes
+                        </label>
+                        <textarea id="notes" rows="2" 
+                            placeholder="Any additional notes or warnings..."
+                            style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:1rem;background:#F8FAFC;font-family:Inter,sans-serif;resize:vertical;"
+                            onfocus="this.style.borderColor='#2563EB'"
+                            onblur="this.style.borderColor='#E2E8F0'"></textarea>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:10px;margin:16px 0;padding:12px;background:#F8FAFC;border-radius:8px;">
+                        <input type="checkbox" id="sendReminders" checked style="width:18px;height:18px;cursor:pointer;">
+                        <label for="sendReminders" style="font-weight:500;font-size:0.9rem;cursor:pointer;color:#0F172A;">
+                            🔔 Send medication reminders to patient
+                        </label>
+                    </div>
+
+                    <button type="submit" style="
+                        width:100%;
+                        padding:14px;
+                        background:#10B981;
+                        color:white;
+                        border:none;
+                        border-radius:8px;
+                        font-size:1rem;
+                        font-weight:600;
+                        cursor:pointer;
+                        transition:0.3s;
+                        font-family:Inter,sans-serif;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        gap:8px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(16,185,129,0.35)'" 
+                       onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
+                        💾 Save Prescription & Schedule Reminders
+                    </button>
+                </form>
             </div>
         `;
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        // Add to DOM
+        document.body.appendChild(modalOverlay);
 
+        // Handle form submission
         document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -1031,7 +1015,8 @@ class DoctorManager {
             }
         });
 
-        document.getElementById('prescriptionModal').addEventListener('click', function(e) {
+        // Close on overlay click
+        modalOverlay.addEventListener('click', function(e) {
             if (e.target === this) {
                 this.remove();
             }
@@ -1152,7 +1137,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // VIEW PATIENT HISTORY - FIXED!
+    // VIEW PATIENT HISTORY
     // =============================================
     async viewPatientHistory(patientId, patientName) {
         console.log('📄 Viewing patient history for:', patientName, 'ID:', patientId);
@@ -1162,73 +1147,65 @@ class DoctorManager {
             return;
         }
 
-        // Show loading modal
-        const modalHtml = `
-            <div class="modal-overlay" id="historyModal" style="
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.6);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 99999;
-                padding: 20px;
-                animation: fadeIn 0.3s ease;
+        // Create modal directly
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'historyModal';
+        modalOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        modalOverlay.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 20px;
+                padding: 32px;
+                max-width: 750px;
+                width: 100%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+                animation: slideUp 0.3s ease;
+                position: relative;
             ">
-                <div class="modal" style="
-                    background: white;
-                    border-radius: 20px;
-                    padding: 32px;
-                    max-width: 750px;
-                    width: 100%;
-                    max-height: 85vh;
-                    overflow-y: auto;
-                    box-shadow: 0 30px 80px rgba(0,0,0,0.3);
-                    animation: slideUp 0.3s ease;
-                    position: relative;
-                ">
-                    <div style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        border-bottom: 2px solid var(--primary);
-                        padding-bottom: 16px;
-                        margin-bottom: 20px;
-                    ">
-                        <div>
-                            <h5 style="font-size:1.3rem;font-weight:700;margin:0;color:var(--text);">
-                                📄 Medical History
-                            </h5>
-                            <small style="display:block;font-size:0.85rem;color:var(--text-light);font-weight:normal;margin-top:2px;">
-                                ${patientName || 'Patient'} - Loading...
-                            </small>
-                        </div>
-                        <button onclick="document.getElementById('historyModal').remove()" style="
-                            background:none;border:none;font-size:1.8rem;cursor:pointer;
-                            color:var(--text-light);padding:0 8px;transition:var(--transition);line-height:1;
-                        " onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-light)'">
-                            ×
-                        </button>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #2563EB;padding-bottom:16px;margin-bottom:20px;">
+                    <div>
+                        <h5 style="font-size:1.3rem;font-weight:700;margin:0;color:#0F172A;">
+                            📄 Medical History
+                        </h5>
+                        <small style="display:block;font-size:0.85rem;color:#64748B;margin-top:2px;">
+                            ${patientName || 'Patient'} - Loading...
+                        </small>
                     </div>
-                    <div style="text-align:center;padding:40px;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="text-muted mt-2">Loading medical records...</p>
+                    <button onclick="document.getElementById('historyModal').remove()" style="
+                        background:none;border:none;font-size:2rem;cursor:pointer;
+                        color:#94A3B8;padding:0 8px;transition:0.3s;line-height:1;
+                    " onmouseover="this.style.color='#0F172A'" onmouseout="this.style.color='#94A3B8'">
+                        ×
+                    </button>
+                </div>
+                <div style="text-align:center;padding:40px;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
+                    <p class="text-muted mt-2">Loading medical records...</p>
                 </div>
             </div>
         `;
 
-        const existingModal = document.getElementById('historyModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.body.appendChild(modalOverlay);
 
         let records = [];
-        let errorMessage = null;
 
         try {
             const { data, error } = await supabase
@@ -1243,7 +1220,6 @@ class DoctorManager {
 
             if (error) {
                 console.error('Supabase error:', error);
-                errorMessage = error.message;
                 records = this.getMockPatientHistory(patientId, patientName);
             } else if (data && data.length > 0) {
                 records = data;
@@ -1252,11 +1228,75 @@ class DoctorManager {
             }
         } catch (error) {
             console.error('Error fetching medical records:', error);
-            errorMessage = error.message;
             records = this.getMockPatientHistory(patientId, patientName);
         }
 
-        this.renderPatientHistoryModal(patientId, patientName, records, errorMessage);
+        // Update modal with records
+        const modalBody = modalOverlay.querySelector('div > div > div:last-child');
+        if (modalBody) {
+            let html = '';
+            
+            if (records && records.length > 0) {
+                html = records.map((record, index) => `
+                    <div style="border:1px solid #E2E8F0;border-radius:12px;margin-bottom:16px;overflow:hidden;border-left:4px solid #2563EB;">
+                        <div style="background:#F8FAFC;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+                            <div>
+                                <strong>👨‍⚕️ ${record.doctor?.full_name || 'Unknown Doctor'}</strong>
+                                <span style="background:#E2E8F0;padding:2px 10px;border-radius:20px;font-size:0.7rem;margin-left:8px;">#${index + 1}</span>
+                            </div>
+                            <small style="color:#64748B;">📅 ${new Date(record.created_at).toLocaleString()}</small>
+                        </div>
+                        <div style="padding:16px;">
+                            <div style="margin-bottom:12px;">
+                                <strong>📝 SOAP Notes:</strong>
+                                <p style="background:#F8FAFC;padding:12px;border-radius:8px;margin-top:4px;">
+                                    ${record.soap_notes || 'No notes available'}
+                                </p>
+                            </div>
+                            ${record.prescriptions && record.prescriptions.length > 0 ? `
+                                <div>
+                                    <strong>💊 Prescriptions:</strong>
+                                    <ul style="list-style:none;padding:0;">
+                                        ${record.prescriptions.map(rx => `
+                                            <li style="background:#D1FAE5;padding:8px 12px;border-radius:8px;margin-bottom:4px;">
+                                                <strong>${rx.medication}</strong> - ${rx.dosage}
+                                                ${rx.instructions ? `<br><small>📝 ${rx.instructions}</small>` : ''}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            ` : `
+                                <div style="color:#64748B;font-size:0.85rem;">
+                                    ℹ️ No prescriptions in this record
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                html = `
+                    <div style="text-align:center;padding:40px;">
+                        <div style="font-size:4rem;margin-bottom:16px;">📭</div>
+                        <h5>No Medical Records Found</h5>
+                        <p style="color:#64748B;">This patient has no medical records yet.</p>
+                        <button onclick="document.getElementById('historyModal').remove(); doctorManager.showPrescriptionModal('${patientId}', '${patientName}')" 
+                            style="margin-top:12px;padding:10px 20px;background:#2563EB;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+                            💊 Write First Prescription
+                        </button>
+                    </div>
+                `;
+            }
+
+            modalBody.innerHTML = html;
+            modalBody.style.textAlign = 'left';
+            modalBody.style.padding = '20px 0';
+        }
+
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.remove();
+            }
+        });
     }
 
     // =============================================
@@ -1281,126 +1321,23 @@ class DoctorManager {
                 prescriptions: [
                     { medication: 'Lisinopril', dosage: '10mg', instructions: 'Take once daily in the morning with water' }
                 ]
-            },
-            {
-                id: 'm3',
-                doctor: { full_name: 'Dr. Sarah Wilson' },
-                created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-                soap_notes: 'Patient reported mild headache and fatigue. Blood pressure 128/82. Recommended increased water intake and rest. Will monitor symptoms.',
-                prescriptions: []
             }
         ];
 
-        if (patientId === 'p2' || patientId === '55555555-5555-5555-5555-555555555555') {
-            return [
-                {
-                    id: 'm4',
-                    doctor: { full_name: 'Dr. Michael Chen' },
-                    created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
-                    soap_notes: 'Patient diagnosed with acne vulgaris. Prescribed topical benzoyl peroxide and oral antibiotics. Skin care routine discussed.',
-                    prescriptions: [
-                        { medication: 'Benzoyl Peroxide', dosage: '5% gel', instructions: 'Apply once daily at bedtime' },
-                        { medication: 'Doxycycline', dosage: '100mg', instructions: 'Take twice daily with food' }
-                    ]
-                }
-            ];
-        }
-
-        if (patientId === 'p3' || patientId === '66666666-6666-6666-6666-666666666666') {
-            return [
-                {
-                    id: 'm5',
-                    doctor: { full_name: 'Dr. Emily Rodriguez' },
-                    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-                    soap_notes: 'Well-child visit. Patient is in good health. Growth and development on track. Vaccinations up to date.',
-                    prescriptions: []
-                }
-            ];
+        if (patientId === 'p2') {
+            return [{
+                id: 'm4',
+                doctor: { full_name: 'Dr. Michael Chen' },
+                created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
+                soap_notes: 'Patient diagnosed with acne vulgaris. Prescribed topical benzoyl peroxide and oral antibiotics.',
+                prescriptions: [
+                    { medication: 'Benzoyl Peroxide', dosage: '5% gel', instructions: 'Apply once daily at bedtime' },
+                    { medication: 'Doxycycline', dosage: '100mg', instructions: 'Take twice daily with food' }
+                ]
+            }];
         }
 
         return mockRecords;
-    }
-
-    // =============================================
-    // RENDER PATIENT HISTORY MODAL
-    // =============================================
-    renderPatientHistoryModal(patientId, patientName, records, errorMessage) {
-        const modal = document.getElementById('historyModal');
-        if (!modal) return;
-
-        const modalBody = modal.querySelector('.modal-body');
-        if (!modalBody) return;
-
-        const subtitle = modal.querySelector('.modal-title small');
-        if (subtitle) {
-            subtitle.textContent = `${patientName || 'Patient'} - ${records.length} records found`;
-        }
-
-        let html = '';
-        
-        if (errorMessage) {
-            html += `
-                <div class="alert alert-warning">
-                    ⚠️ Could not fetch all records: ${errorMessage}
-                    <br><small>Showing sample data for demonstration.</small>
-                </div>
-            `;
-        }
-
-        if (records && records.length > 0) {
-            html += records.map((record, index) => `
-                <div class="card mb-3" style="border-left: 4px solid var(--primary);">
-                    <div class="card-header" style="background: var(--background); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                        <div>
-                            <strong>👨‍⚕️ ${record.doctor?.full_name || 'Unknown Doctor'}</strong>
-                            <span class="badge bg-secondary ms-2">#${index + 1}</span>
-                        </div>
-                        <small class="text-muted">📅 ${new Date(record.created_at).toLocaleString()}</small>
-                    </div>
-                    <div class="card-body">
-                        <div style="margin-bottom: 12px;">
-                            <strong>📝 SOAP Notes:</strong>
-                            <p style="background: var(--background); padding: 12px; border-radius: var(--radius-sm); margin-top: 4px;">
-                                ${record.soap_notes || 'No notes available'}
-                            </p>
-                        </div>
-                        
-                        ${record.prescriptions && record.prescriptions.length > 0 ? `
-                            <div>
-                                <strong>💊 Prescriptions:</strong>
-                                <ul style="list-style: none; padding: 0;">
-                                    ${record.prescriptions.map(rx => `
-                                        <li style="background: var(--success-light); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 4px;">
-                                            <strong>${rx.medication}</strong> - ${rx.dosage}
-                                            ${rx.instructions ? `<br><small>📝 ${rx.instructions}</small>` : ''}
-                                        </li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        ` : `
-                            <div class="text-muted small">
-                                ℹ️ No prescriptions in this record
-                            </div>
-                        `}
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            html += `
-                <div class="text-center py-5">
-                    <div style="font-size: 4rem; margin-bottom: 16px;">📭</div>
-                    <h5>No Medical Records Found</h5>
-                    <p class="text-muted">This patient has no medical records yet.</p>
-                    <button class="btn btn-primary mt-2" onclick="doctorManager.showPrescriptionModal('${patientId}', '${patientName}')">
-                        💊 Write First Prescription
-                    </button>
-                </div>
-            `;
-        }
-
-        modalBody.innerHTML = html;
-        modalBody.style.textAlign = 'left';
-        modalBody.style.padding = '20px 0';
     }
 
     // =============================================
