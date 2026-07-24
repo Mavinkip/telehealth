@@ -1,5 +1,5 @@
 /*
- * File: patient.js - Complete with Navigation, Medications & Prescriptions
+ * File: patient.js - With Proper Sidebar Navigation
  */
 
 class PatientManager {
@@ -11,6 +11,7 @@ class PatientManager {
             physical: 500
         };
         this.viewHistory = [];
+        this.isSidebarOpen = true;
     }
 
     showDashboard() {
@@ -24,71 +25,139 @@ class PatientManager {
 
         app.innerHTML = this.getDashboardHTML(profile);
         
-        // Attach events after DOM is rendered
-        this.attachEvents();
-        
-        // Load initial view after DOM is ready
         setTimeout(() => {
+            this.attachEvents();
             this.loadView('dashboard');
         }, 100);
     }
 
     getDashboardHTML(profile) {
         return `
-            <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-                <div class="container">
-                    <a class="navbar-brand" href="#" onclick="patientManager.loadView('dashboard'); return false;">
-                        🏥 Telehealth
-                    </a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav me-auto">
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="dashboard">📊 Dashboard</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="appointments">📅 Appointments</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="medications">💊 Prescriptions</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="chat">💬 Messages</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="profile">👤 Profile</a>
-                            </li>
-                        </ul>
-                        <span class="navbar-text me-3">👋 ${profile.full_name}</span>
-                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 Logout</button>
+            <div class="app-layout patient-layout">
+                <!-- Sidebar -->
+                <aside class="sidebar" id="patientSidebar">
+                    <div class="sidebar-header">
+                        <div class="brand">
+                            <span class="brand-icon">🏥</span>
+                            <span class="brand-text">TeleHealth</span>
+                        </div>
+                        <button class="sidebar-toggle" id="sidebarToggle">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
                     </div>
-                </div>
-            </nav>
-            <div class="container mt-4">
-                <div id="backButtonContainer" style="display:none; margin-bottom: 12px;">
-                    <button class="btn btn-outline-secondary btn-sm" onclick="patientManager.goBack()">⬅️ Back</button>
-                </div>
-                <div id="patientContent">
-                    <!-- Content will be loaded here -->
-                </div>
+                    <nav class="sidebar-nav">
+                        <div class="nav-section-title">Main Menu</div>
+                        <button class="nav-item active" data-view="dashboard">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-label">Dashboard</span>
+                        </button>
+                        <button class="nav-item" data-view="appointments">
+                            <span class="nav-icon">📅</span>
+                            <span class="nav-label">My Appointments</span>
+                        </button>
+                        <button class="nav-item" data-view="doctors">
+                            <span class="nav-icon">👨‍⚕️</span>
+                            <span class="nav-label">Find Doctors</span>
+                        </button>
+                        <button class="nav-item" data-view="medications">
+                            <span class="nav-icon">💊</span>
+                            <span class="nav-label">Prescriptions</span>
+                        </button>
+                        <button class="nav-item" data-view="chat">
+                            <span class="nav-icon">💬</span>
+                            <span class="nav-label">Messages</span>
+                        </button>
+                        <button class="nav-item" data-view="profile">
+                            <span class="nav-icon">👤</span>
+                            <span class="nav-label">Profile</span>
+                        </button>
+                    </nav>
+                    <div class="sidebar-footer">
+                        <button class="nav-item" id="logoutBtn">
+                            <span class="nav-icon">🚪</span>
+                            <span class="nav-label">Logout</span>
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="main-content">
+                    <!-- Top Header -->
+                    <header class="top-header">
+                        <div class="header-left">
+                            <button class="hamburger" id="hamburgerBtn">
+                                <i class="fas fa-bars"></i>
+                            </button>
+                            <span class="page-title" id="pageTitle">Dashboard</span>
+                        </div>
+                        <div class="header-right">
+                            <div class="user-profile">
+                                <div class="avatar" style="background: #10B981;">${profile.full_name?.charAt(0) || 'U'}</div>
+                                <div class="user-info">
+                                    <span class="name">${profile.full_name}</span>
+                                    <span class="role">Patient</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Content -->
+                    <div class="content-area" id="patientContent">
+                        <!-- Dynamic content will be loaded here -->
+                    </div>
+                </main>
             </div>
+
+            <!-- Sidebar Overlay (mobile) -->
+            <div class="sidebar-overlay" id="sidebarOverlay"></div>
         `;
     }
 
     attachEvents() {
-        // Navigation links
-        document.querySelectorAll('[data-view]').forEach(link => {
+        // Sidebar navigation - data-view clicks
+        document.querySelectorAll('.nav-item[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const view = link.dataset.view;
                 console.log('📱 Navigating to:', view);
+                
+                // Update active state
+                document.querySelectorAll('.nav-item[data-view]').forEach(l => {
+                    l.classList.remove('active');
+                });
+                link.classList.add('active');
+                
                 this.loadView(view);
+                this.closeMobileSidebar();
             });
         });
 
+        // Sidebar toggle (desktop) - collapse/expand
+        const toggleBtn = document.getElementById('sidebarToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
+
+        // Hamburger (mobile)
+        const hamburger = document.getElementById('hamburgerBtn');
+        if (hamburger) {
+            hamburger.addEventListener('click', () => {
+                this.toggleMobileSidebar();
+            });
+        }
+
+        // Sidebar overlay (mobile)
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                this.closeMobileSidebar();
+            });
+        }
+
+        // Logout
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -98,75 +167,79 @@ class PatientManager {
                 }
             });
         }
+
+        // Window resize - close mobile sidebar
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 992) {
+                this.closeMobileSidebar();
+            }
+        });
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById('patientSidebar');
+        const mainContent = document.querySelector('.main-content');
+        
+        if (window.innerWidth > 992) {
+            this.isSidebarOpen = !this.isSidebarOpen;
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            const icon = document.getElementById('sidebarToggle')?.querySelector('i');
+            if (icon) {
+                icon.className = this.isSidebarOpen ? 'fas fa-chevron-left' : 'fas fa-chevron-right';
+            }
+        }
+    }
+
+    toggleMobileSidebar() {
+        const sidebar = document.getElementById('patientSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) {
+            sidebar.classList.toggle('open');
+        }
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
+    }
+
+    closeMobileSidebar() {
+        const sidebar = document.getElementById('patientSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) {
+            sidebar.classList.remove('open');
+        }
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
     }
 
     async loadView(view) {
         console.log('📱 Loading view:', view);
         
-        // Wait for DOM to be ready
         await new Promise(resolve => setTimeout(resolve, 50));
         
         const content = document.getElementById('patientContent');
-        
-        // If content doesn't exist, try to find or create it
         if (!content) {
-            console.log('⚠️ Content element not found - searching...');
-            
-            // Try to find it again after a short delay
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const retryContent = document.getElementById('patientContent');
-            
-            if (retryContent) {
-                console.log('✅ Found content element on retry');
-                this._renderView(view, retryContent);
-                return;
-            }
-            
-            // If still not found, create it
-            console.log('🔄 Creating content element...');
-            const container = document.querySelector('.container.mt-4');
-            if (container) {
-                // Check if back button container exists
-                let backContainer = document.getElementById('backButtonContainer');
-                if (!backContainer) {
-                    backContainer = document.createElement('div');
-                    backContainer.id = 'backButtonContainer';
-                    backContainer.style.display = 'none';
-                    backContainer.style.marginBottom = '12px';
-                    backContainer.innerHTML = `
-                        <button class="btn btn-outline-secondary btn-sm" onclick="patientManager.goBack()">⬅️ Back</button>
-                    `;
-                    container.prepend(backContainer);
-                }
-                
-                // Create content container
-                const newContent = document.createElement('div');
-                newContent.id = 'patientContent';
-                container.appendChild(newContent);
-                
-                console.log('✅ Created new content element');
-                this._renderView(view, newContent);
-                return;
-            }
-            
-            console.error('❌ Could not find or create content container');
+            console.error('❌ Content element not found');
             return;
         }
-        
-        this._renderView(view, content);
-    }
 
-    _renderView(view, content) {
-        // Show back button for views other than dashboard
-        const backBtn = document.getElementById('backButtonContainer');
-        if (backBtn) {
-            backBtn.style.display = view === 'dashboard' ? 'none' : 'block';
+        // Update page title
+        const titleMap = {
+            'dashboard': 'Dashboard',
+            'appointments': 'My Appointments',
+            'doctors': 'Find Doctors',
+            'medications': 'Prescriptions',
+            'chat': 'Messages',
+            'profile': 'Profile'
+        };
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle) {
+            pageTitle.textContent = titleMap[view] || 'Dashboard';
         }
-
-        // Update active nav
-        document.querySelectorAll('[data-view]').forEach(link => {
-            link.classList.toggle('active', link.dataset.view === view);
-        });
 
         // Show loading
         content.innerHTML = `
@@ -188,22 +261,25 @@ class PatientManager {
         try {
             switch(view) {
                 case 'dashboard':
-                    this.loadDashboardContent(content);
+                    await this.loadDashboardContent(content);
                     break;
                 case 'appointments':
-                    this.loadAppointmentsContent(content);
+                    await this.loadAppointmentsContent(content);
+                    break;
+                case 'doctors':
+                    await this.loadDoctorsContent(content);
                     break;
                 case 'medications':
-                    this.loadMedicationsContent(content);
+                    await this.loadMedicationsContent(content);
                     break;
                 case 'chat':
-                    this.loadChatContent(content);
+                    await this.loadChatContent(content);
                     break;
                 case 'profile':
-                    this.loadProfileContent(content);
+                    await this.loadProfileContent(content);
                     break;
                 default:
-                    this.loadDashboardContent(content);
+                    await this.loadDashboardContent(content);
             }
         } catch (error) {
             console.error('❌ Error loading view:', error);
@@ -216,16 +292,53 @@ class PatientManager {
         }
     }
 
-    goBack() {
-        this.viewHistory.pop();
-        const previous = this.viewHistory.pop() || 'dashboard';
-        this.loadView(previous);
+    // =============================================
+    // FIND DOCTORS CONTENT
+    // =============================================
+    async loadDoctorsContent(container) {
+        console.log('👨‍⚕️ Loading doctors...');
+        await this.refreshDoctors();
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>👨‍⚕️ Find Doctors</h2>
+                    <p class="text-muted">Browse available doctors and book appointments</p>
+                </div>
+            </div>
+            <div class="row mt-3">
+                ${this.availableDoctors && this.availableDoctors.length > 0
+                    ? this.availableDoctors.map(doc => `
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <div style="font-size: 4rem; margin-bottom: 12px;">👨‍⚕️</div>
+                                    <h5 class="card-title">Dr. ${doc.full_name}</h5>
+                                    <p class="card-text"><span class="badge bg-primary">${doc.specialty || 'General Practice'}</span></p>
+                                    <p class="card-text"><small>📧 ${doc.email}</small></p>
+                                    <p class="card-text"><small>📱 ${doc.phone || 'No phone'}</small></p>
+                                    <button class="btn btn-primary w-100" onclick="patientManager.bookWithDoctor('${doc.id}', '${doc.full_name}')">
+                                        📅 Book Appointment
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<p class="text-muted text-center py-5">No doctors available at the moment</p>'
+                }
+            </div>
+        `;
+    }
+
+    bookWithDoctor(doctorId, doctorName) {
+        // Open booking modal with pre-selected doctor
+        this.showBookingModal(doctorId, doctorName);
     }
 
     // =============================================
     // CHAT CONTENT
     // =============================================
-    loadChatContent(container) {
+    async loadChatContent(container) {
         console.log('💬 Loading chat content...');
         
         container.innerHTML = `
@@ -241,7 +354,6 @@ class PatientManager {
                             <p class="text-muted">Connect with your doctors in real-time</p>
                             <div class="alert alert-info">ℹ️ Chat is being initialized. Please wait...</div>
                             <button class="btn btn-primary mt-3" onclick="patientManager.loadView('chat')">🔄 Retry</button>
-                            <button class="btn btn-outline-secondary mt-3 ms-2" onclick="patientManager.loadView('dashboard')">⬅️ Back to Dashboard</button>
                         </div>
                     </div>
                 </div>
@@ -310,11 +422,42 @@ class PatientManager {
             .select('*', { count: 'exact', head: true })
             .eq('patient_id', userId);
 
+        // Get available doctors count
+        await this.refreshDoctors();
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
                     <h2>🏥 Patient Dashboard</h2>
                     <p class="text-muted">Welcome to your telehealth portal</p>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row mt-3">
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="stat-card">
+                        <div class="stat-label">📅 Upcoming</div>
+                        <div class="stat-value accent">${upcomingAppointments?.length || 0}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="stat-card">
+                        <div class="stat-label">💊 Medications</div>
+                        <div class="stat-value warning">${todaysMeds?.length || 0}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="stat-card">
+                        <div class="stat-label">👨‍⚕️ Doctors</div>
+                        <div class="stat-value">${this.availableDoctors?.length || 0}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="stat-card">
+                        <div class="stat-label">💰 Total Paid</div>
+                        <div class="stat-value success">KES ${totalSpent.toLocaleString()}</div>
+                    </div>
                 </div>
             </div>
 
@@ -343,21 +486,7 @@ class PatientManager {
                         </div>
                     </div>
                 </div>
-            ` : `
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card border-info">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="mb-0">💊 Medications</h5>
-                            </div>
-                            <div class="card-body text-center py-3">
-                                <p class="mb-0">✅ No pending medications for today</p>
-                                <small class="text-muted">You have ${activePrescriptions || 0} active prescription(s)</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `}
+            ` : ''}
 
             ${pendingPayments && pendingPayments.length > 0 ? `
                 <div class="row mt-3">
@@ -386,82 +515,31 @@ class PatientManager {
             ` : ''}
 
             <div class="row mt-4">
-                <div class="col-6 col-md-3 mb-3">
-                    <div class="card dashboard-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
-                        <div class="card-body text-center">
-                            <div class="icon">📅</div>
-                            <h4>Book</h4>
-                            <p class="text-muted small">Appointment</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                    <div class="card dashboard-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
-                        <div class="card-body text-center">
-                            <div class="icon">💊</div>
-                            <h4>Prescriptions</h4>
-                            <p class="text-muted small">View & Track</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                    <div class="card dashboard-card" onclick="patientManager.loadView('chat')" style="cursor:pointer;">
-                        <div class="card-body text-center">
-                            <div class="icon">💬</div>
-                            <h4>Messages</h4>
-                            <p class="text-muted small">Chat</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                    <div class="card dashboard-card" onclick="patientManager.loadView('profile')" style="cursor:pointer;">
-                        <div class="card-body text-center">
-                            <div class="icon">👤</div>
-                            <h4>Profile</h4>
-                            <p class="text-muted small">Manage</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="col-md-6">
+                <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0">💰 Payment Summary</h5>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>Total Paid:</strong> KES ${totalSpent.toLocaleString()}</p>
-                            <p><strong>Pending Video Payments:</strong> ${pendingPayments?.length || 0}</p>
-                            <p><strong>Active Prescriptions:</strong> ${activePrescriptions || 0}</p>
-                            <p><strong>Pricing:</strong></p>
-                            <ul class="small">
-                                <li>🎥 Video Call: <strong>KES 300</strong> (pay after call)</li>
-                                <li>🏥 Physical: <strong>KES 500</strong> (pay at booking)</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">📅 Upcoming</h5>
+                            <h5 class="card-title">📅 Upcoming Appointments</h5>
+                            <span class="badge bg-primary">${upcomingAppointments?.length || 0}</span>
                         </div>
                         <div class="card-body">
                             ${upcomingAppointments && upcomingAppointments.length > 0 
                                 ? upcomingAppointments.map(apt => `
-                                    <div class="p-2 mb-2 bg-light rounded">
-                                        <h6>👨‍⚕️ ${apt.doctor.full_name}</h6>
-                                        <p class="mb-0 small">⏰ ${new Date(apt.scheduled_at).toLocaleString()}</p>
-                                        <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
-                                            ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type}
-                                        </span>
-                                        ${apt.is_follow_up ? '<span class="badge bg-info">🔄 Follow-up</span>' : ''}
+                                    <div class="p-2 mb-2 bg-light rounded d-flex justify-content-between align-items-center flex-wrap">
+                                        <div>
+                                            <h6 class="mb-0">👨‍⚕️ ${apt.doctor.full_name}</h6>
+                                            <p class="mb-0 small">⏰ ${new Date(apt.scheduled_at).toLocaleString()}</p>
+                                            <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
+                                                ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-primary" onclick="patientManager.loadView('appointments')">📅 View</button>
+                                        </div>
                                     </div>
                                 `).join('')
-                                : '<p class="text-muted">No upcoming appointments</p>'
+                                : '<p class="text-muted text-center py-3">No upcoming appointments</p>'
                             }
-                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">📅 View All</button>
+                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">📅 View All Appointments</button>
                         </div>
                     </div>
                 </div>
@@ -476,7 +554,6 @@ class PatientManager {
         console.log('💊 Loading medications & prescriptions...');
         const userId = authManager.getUserId();
         
-        // Get all prescriptions
         const { data: prescriptions } = await supabase
             .from('prescriptions')
             .select(`
@@ -486,7 +563,6 @@ class PatientManager {
             .eq('patient_id', userId)
             .order('issued_at', { ascending: false });
 
-        // Get medication schedule
         const { data: medicationSchedule } = await supabase
             .from('medication_schedule')
             .select('*')
@@ -508,7 +584,6 @@ class PatientManager {
                 </div>
             </div>
 
-            <!-- Today's Medication Schedule -->
             ${upcomingMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
@@ -549,7 +624,6 @@ class PatientManager {
                 </div>
             `}
 
-            <!-- All Prescriptions -->
             <div class="row mt-3">
                 <div class="col-12">
                     <div class="card">
@@ -569,7 +643,6 @@ class PatientManager {
                                                     <br><strong>📅 Duration:</strong> ${rx.duration || 'N/A'}
                                                     <br><strong>🍽️ When to take:</strong> ${rx.when_to_take || 'As directed'}
                                                     <br><strong>📝 Instructions:</strong> ${rx.instructions || 'Take as directed'}
-                                                    ${rx.notes ? `<br><strong>📌 Notes:</strong> ${rx.notes}` : ''}
                                                 </p>
                                                 <small>📅 Issued: ${new Date(rx.issued_at).toLocaleDateString()}</small>
                                             </div>
@@ -587,35 +660,6 @@ class PatientManager {
                     </div>
                 </div>
             </div>
-
-            <!-- All Upcoming Medication Schedule -->
-            ${allUpcomingMeds.length > 0 ? `
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0">📅 Upcoming Medication Schedule (${allUpcomingMeds.length})</h5>
-                            </div>
-                            <div class="card-body">
-                                ${allUpcomingMeds.slice(0, 20).map(med => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                                        <div>
-                                            <strong>💊 ${med.medication}</strong>
-                                            <br><small>${med.dosage} - 📅 ${new Date(med.scheduled_time).toLocaleDateString()} ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
-                                        </div>
-                                        <div>
-                                            <span class="badge ${med.taken ? 'bg-success' : 'bg-warning'}">
-                                                ${med.taken ? '✅ Taken' : '⏳ Pending'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                                ${allUpcomingMeds.length > 20 ? `<p class="text-muted mt-2">... and ${allUpcomingMeds.length - 20} more</p>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ` : ''}
         `;
     }
 
@@ -656,8 +700,6 @@ class PatientManager {
             `)
             .eq('patient_id', userId)
             .order('scheduled_at', { ascending: false });
-
-        await this.refreshDoctors();
 
         container.innerHTML = `
             <div class="row">
@@ -780,8 +822,6 @@ class PatientManager {
                 created_at: new Date().toISOString()
             };
 
-            console.log('Booking appointment with data:', appointmentData);
-
             const { data, error } = await supabase
                 .from('appointments')
                 .insert([appointmentData])
@@ -818,11 +858,11 @@ class PatientManager {
     // =============================================
     // SHOW BOOKING MODAL
     // =============================================
-    showBookingModal() {
+    showBookingModal(preSelectedDoctorId = null, preSelectedDoctorName = null) {
         this.refreshDoctors();
         
         const doctorsHtml = this.availableDoctors.map(doc => 
-            `<option value="${doc.id}">👨‍⚕️ Dr. ${doc.full_name} - ${doc.specialty || 'General Practice'}</option>`
+            `<option value="${doc.id}" ${doc.id === preSelectedDoctorId ? 'selected' : ''}>👨‍⚕️ Dr. ${doc.full_name} - ${doc.specialty || 'General Practice'}</option>`
         ).join('');
 
         const modalHtml = `
