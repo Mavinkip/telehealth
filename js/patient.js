@@ -1,5 +1,5 @@
 /*
- * File: patient.js - With Prescriptions in Sidebar
+ * File: patient.js - Complete with Prescriptions in Sidebar
  */
 
 class PatientManager {
@@ -82,7 +82,6 @@ class PatientManager {
 
                 <!-- Main Content -->
                 <main class="main-content">
-                    <!-- Top Header -->
                     <header class="top-header">
                         <div class="header-left">
                             <button class="hamburger" id="hamburgerBtn">
@@ -101,20 +100,17 @@ class PatientManager {
                         </div>
                     </header>
 
-                    <!-- Content -->
                     <div class="content-area" id="patientContent">
-                        <!-- Dynamic content will be loaded here -->
+                        <!-- Dynamic content -->
                     </div>
                 </main>
             </div>
 
-            <!-- Sidebar Overlay (mobile) -->
             <div class="sidebar-overlay" id="sidebarOverlay"></div>
         `;
     }
 
     attachEvents() {
-        // Sidebar navigation - data-view clicks
         document.querySelectorAll('.nav-item[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -122,7 +118,6 @@ class PatientManager {
                 const view = link.dataset.view;
                 console.log('📱 Navigating to:', view);
                 
-                // Update active state
                 document.querySelectorAll('.nav-item[data-view]').forEach(l => {
                     l.classList.remove('active');
                 });
@@ -133,7 +128,6 @@ class PatientManager {
             });
         });
 
-        // Sidebar toggle (desktop) - collapse/expand
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -141,7 +135,6 @@ class PatientManager {
             });
         }
 
-        // Hamburger (mobile)
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', () => {
@@ -149,7 +142,6 @@ class PatientManager {
             });
         }
 
-        // Sidebar overlay (mobile)
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -157,7 +149,6 @@ class PatientManager {
             });
         }
 
-        // Logout
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -168,7 +159,6 @@ class PatientManager {
             });
         }
 
-        // Window resize - close mobile sidebar
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
                 this.closeMobileSidebar();
@@ -227,7 +217,6 @@ class PatientManager {
             return;
         }
 
-        // Update page title
         const titleMap = {
             'dashboard': 'Dashboard',
             'appointments': 'My Appointments',
@@ -241,7 +230,6 @@ class PatientManager {
             pageTitle.textContent = titleMap[view] || 'Dashboard';
         }
 
-        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -251,13 +239,11 @@ class PatientManager {
             </div>
         `;
 
-        // Push to history
         this.viewHistory.push(view);
         if (this.viewHistory.length > 10) {
             this.viewHistory.shift();
         }
 
-        // Load the view
         try {
             switch(view) {
                 case 'dashboard':
@@ -299,7 +285,6 @@ class PatientManager {
         console.log('💊 Loading medications & prescriptions...');
         const userId = authManager.getUserId();
         
-        // Get all prescriptions
         const { data: prescriptions } = await supabase
             .from('prescriptions')
             .select(`
@@ -309,7 +294,6 @@ class PatientManager {
             .eq('patient_id', userId)
             .order('issued_at', { ascending: false });
 
-        // Get medication schedule
         const { data: medicationSchedule } = await supabase
             .from('medication_schedule')
             .select('*')
@@ -631,7 +615,7 @@ class PatientManager {
             ${todaysMeds && todaysMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
-                        <div class="card border-success" style="border-width: 2px;">
+                        <div class="card border-success">
                             <div class="card-header bg-success text-white">
                                 <h5 class="mb-0">💊 Today's Medication Schedule</h5>
                                 <span class="badge bg-light text-dark">${todaysMeds.length} pending</span>
