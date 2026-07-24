@@ -944,4 +944,5 @@ class PatientManager {
 // Initialize patient manager
 const patientManager = new PatientManager();
 window.patientManager = patientManager;
-console.log('✅ PatientManager initialized');
+console.log('✅ PatientManager initialized');/ /   N a v i g a t i o n   f i x   -   a d d e d   b a c k   b u t t o n  
+ 
