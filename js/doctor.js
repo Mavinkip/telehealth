@@ -103,397 +103,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // WRITE PRESCRIPTION - FULL MEDICATION SCHEDULE
-    // =============================================
-    writePrescription(patientId, patientName) {
-        if (!patientId || patientId === 'undefined' || patientId === 'null') {
-            alert('❌ Error: Invalid patient ID. Please try again.');
-            return;
-        }
-
-        const modalHtml = `
-            <div class="modal-overlay" id="prescriptionModal">
-                <div class="modal" style="max-width: 600px;">
-                    <div class="modal-header" style="background: var(--success); border-radius: var(--radius-lg) var(--radius-lg) 0 0; margin: -32px -32px 0 -32px; padding: 20px 32px;">
-                        <h5 class="modal-title" style="color: white;">💊 Write Prescription - ${patientName || 'Patient'}</h5>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color: white;">×</button>
-                    </div>
-                    <div class="modal-body" style="margin-top: 20px;">
-                        <form id="prescriptionForm">
-                            <div class="form-group">
-                                <label class="form-label">👤 Patient</label>
-                                <input type="text" class="form-control" value="${patientName || 'Patient'}" disabled>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">💊 Medication Name *</label>
-                                <input type="text" class="form-control" id="medicationName" placeholder="e.g., Amoxicillin" required>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="form-label">📏 Dosage *</label>
-                                        <input type="text" class="form-control" id="dosage" placeholder="e.g., 500mg" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="form-label">⏰ Times Per Day</label>
-                                        <select class="form-control" id="timesPerDay">
-                                            <option value="1 time per day">1 time per day</option>
-                                            <option value="2 times per day" selected>2 times per day</option>
-                                            <option value="3 times per day">3 times per day</option>
-                                            <option value="4 times per day">4 times per day</option>
-                                            <option value="As needed">As needed</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="form-label">📅 Duration (Days) *</label>
-                                        <input type="number" class="form-control" id="durationDays" placeholder="e.g., 7" min="1" max="90" required>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">🍽️ When to Take</label>
-                                <select class="form-control" id="whenToTake">
-                                    <option value="After meals">After meals</option>
-                                    <option value="Before meals">Before meals</option>
-                                    <option value="With food">With food</option>
-                                    <option value="On empty stomach">On empty stomach</option>
-                                    <option value="At bedtime">At bedtime</option>
-                                    <option value="With water">With water</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">📝 Special Instructions</label>
-                                <textarea class="form-control" id="instructions" rows="2" placeholder="Any special instructions..."></textarea>
-                            </div>
-                            <div class="form-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="sendReminders" checked>
-                                    <label class="form-check-label" for="sendReminders">🔔 Send medication reminders to patient</label>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-success btn-block">
-                                💾 Save Prescription & Schedule Reminders
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const existingModal = document.getElementById('prescriptionModal');
-        if (existingModal) existingModal.remove();
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-        document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const medication = document.getElementById('medicationName').value.trim();
-            const dosage = document.getElementById('dosage').value.trim();
-            const timesPerDay = document.getElementById('timesPerDay').value;
-            const durationDays = parseInt(document.getElementById('durationDays').value) || 7;
-            const whenToTake = document.getElementById('whenToTake').value;
-            const instructions = document.getElementById('instructions').value.trim();
-            const sendReminders = document.getElementById('sendReminders').checked;
-
-            if (!medication || !dosage || !durationDays) {
-                alert('⚠️ Please fill in all required fields.');
-                return;
-            }
-
-            const result = await this.savePrescription(patientId, {
-                medication,
-                dosage,
-                frequency: timesPerDay,
-                duration: `${durationDays} days`,
-                duration_days: durationDays,
-                when_to_take: whenToTake,
-                times_per_day: timesPerDay,
-                instructions: instructions || whenToTake,
-                send_reminders: sendReminders,
-                notes: ''
-            });
-            
-            alert(result.message);
-            if (result.success) {
-                document.getElementById('prescriptionModal').remove();
-                this.loadView('patients');
-            }
-        });
-    }
-
-    async savePrescription(patientId, prescriptionData) {
-        try {
-            const doctorId = authManager.getUserId();
-            
-            if (!patientId || patientId === 'undefined' || patientId === 'null') {
-                throw new Error('Invalid patient ID');
-            }
-            
-            // Save the prescription
-            const prescription = {
-                patient_id: patientId,
-                doctor_id: doctorId,
-                medication: prescriptionData.medication,
-                dosage: prescriptionData.dosage,
-                frequency: prescriptionData.frequency || '',
-                duration: prescriptionData.duration || '',
-                duration_days: prescriptionData.duration_days || null,
-                when_to_take: prescriptionData.when_to_take || '',
-                times_per_day: prescriptionData.times_per_day || '',
-                instructions: prescriptionData.instructions || '',
-                send_reminders: prescriptionData.send_reminders || false,
-                notes: prescriptionData.notes || '',
-                issued_at: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('prescriptions')
-                .insert([prescription]);
-
-            if (error) throw error;
-
-            // If reminders are enabled, create medication schedule
-            if (prescriptionData.send_reminders) {
-                await this.createMedicationSchedule(patientId, prescriptionData);
-                await this.sendMedicationReminders(patientId, prescriptionData);
-            }
-
-            await this.notifyPatientPrescription(patientId, prescriptionData);
-
-            return { success: true, message: '✅ Prescription saved successfully! Medication schedule created.' };
-        } catch (error) {
-            console.error('❌ Prescription error:', error);
-            return { success: false, message: error.message || 'Failed to save prescription.' };
-        }
-    }
-
-    // =============================================
-    // CREATE MEDICATION SCHEDULE
-    // =============================================
-    async createMedicationSchedule(patientId, prescriptionData) {
-        try {
-            const timesPerDayNum = this.getTimesPerDayNumber(prescriptionData.times_per_day);
-            const intervalHours = Math.floor(12 / timesPerDayNum);
-            const scheduleEntries = [];
-            const startDate = new Date();
-
-            // Generate schedule for each day
-            for (let d = 0; d < prescriptionData.duration_days; d++) {
-                const date = new Date(startDate);
-                date.setDate(date.getDate() + d);
-                
-                // Generate schedule for each time per day
-                for (let t = 0; t < timesPerDayNum; t++) {
-                    const hour = 8 + (t * intervalHours);
-                    const reminderTime = new Date(date);
-                    reminderTime.setHours(hour, 0, 0, 0);
-                    
-                    scheduleEntries.push({
-                        patient_id: patientId,
-                        medication: prescriptionData.medication,
-                        dosage: prescriptionData.dosage,
-                        scheduled_time: reminderTime.toISOString(),
-                        taken: false,
-                        created_at: new Date().toISOString()
-                    });
-                }
-            }
-
-            // Insert schedule entries
-            const { error } = await supabase
-                .from('medication_schedule')
-                .insert(scheduleEntries);
-
-            if (error) {
-                console.error('Error creating medication schedule:', error);
-            } else {
-                console.log(`✅ Created ${scheduleEntries.length} medication schedule entries`);
-            }
-
-        } catch (error) {
-            console.error('Error creating medication schedule:', error);
-        }
-    }
-
-    getTimesPerDayNumber(timesPerDay) {
-        if (timesPerDay.includes('1')) return 1;
-        if (timesPerDay.includes('2')) return 2;
-        if (timesPerDay.includes('3')) return 3;
-        if (timesPerDay.includes('4')) return 4;
-        return 2; // default
-    }
-
-    // =============================================
-    // SEND MEDICATION REMINDERS
-    // =============================================
-    async sendMedicationReminders(patientId, prescriptionData) {
-        try {
-            const doctorId = authManager.getUserId();
-            const { data: doctorData } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', doctorId)
-                .single();
-
-            const doctorName = doctorData?.full_name || 'Doctor';
-            const timesPerDayNum = this.getTimesPerDayNumber(prescriptionData.times_per_day);
-            const intervalHours = Math.floor(12 / timesPerDayNum);
-            const reminderTimes = [];
-
-            for (let i = 0; i < timesPerDayNum; i++) {
-                const hour = 8 + (i * intervalHours);
-                reminderTimes.push(`${hour.toString().padStart(2, '0')}:00`);
-            }
-
-            const messageContent = `💊 **Medication Schedule**\n\n` +
-                `Dr. ${doctorName} has prescribed:\n` +
-                `📋 **${prescriptionData.medication}** - ${prescriptionData.dosage}\n` +
-                `⏰ **Take ${prescriptionData.times_per_day}** at: ${reminderTimes.join(', ')}\n` +
-                `🍽️ **When to take:** ${prescriptionData.when_to_take}\n` +
-                `📅 **Duration:** ${prescriptionData.duration}\n` +
-                `💡 **Instructions:** ${prescriptionData.instructions}\n\n` +
-                `🔔 You will receive reminders when it's time to take your medication.`;
-
-            await supabase
-                .from('messages')
-                .insert([{
-                    sender_id: doctorId,
-                    receiver_id: patientId,
-                    appointment_id: null,
-                    content: messageContent,
-                    sent_at: new Date().toISOString()
-                }]);
-
-        } catch (error) {
-            console.error('Error sending medication reminders:', error);
-        }
-    }
-
-    async notifyPatientPrescription(patientId, prescriptionData) {
-        try {
-            const doctorId = authManager.getUserId();
-            const { data: doctorData } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', doctorId)
-                .single();
-
-            const doctorName = doctorData?.full_name || 'Doctor';
-
-            const messageContent = `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${prescriptionData.medication} - ${prescriptionData.dosage}\n⏰ Take ${prescriptionData.frequency}\n📅 Duration: ${prescriptionData.duration}\n📝 ${prescriptionData.instructions}\n\n🔔 You will receive reminders when it's time to take your medication.`;
-
-            await supabase
-                .from('messages')
-                .insert([{
-                    sender_id: doctorId,
-                    receiver_id: patientId,
-                    appointment_id: null,
-                    content: messageContent,
-                    sent_at: new Date().toISOString()
-                }]);
-
-        } catch (error) {
-            console.error('Error notifying patient:', error);
-        }
-    }
-
-    // =============================================
-    // PATIENTS LIST - WITH PRESCRIPTION BUTTON
-    // =============================================
-    async loadPatientsContent(container) {
-        const userId = authManager.getUserId();
-        
-        const { data: patients } = await supabase
-            .from('appointments')
-            .select(`
-                patient_id,
-                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone, created_at)
-            `)
-            .eq('doctor_id', userId);
-
-        const patientMap = new Map();
-        if (patients) {
-            patients.forEach(p => {
-                if (p.patient && !patientMap.has(p.patient_id)) {
-                    patientMap.set(p.patient_id, p.patient);
-                }
-            });
-        }
-        const uniquePatients = Array.from(patientMap.values());
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>👥 My Patients</h2>
-                    <p class="text-muted">Manage your patients, write prescriptions, and schedule follow-ups</p>
-                </div>
-            </div>
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">Patient List</h5>
-                            <span class="badge bg-primary">${uniquePatients.length} patients</span>
-                        </div>
-                        <div class="card-body">
-                            ${uniquePatients && uniquePatients.length > 0
-                                ? `<div class="table-responsive">
-                                    <table class="table">
-                                        <thead>
-                                            <tr>
-                                                <th>Patient</th>
-                                                <th>Email</th>
-                                                <th>Phone</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${uniquePatients.map(patient => `
-                                                <tr>
-                                                    <td><strong>${patient.full_name || 'Unknown'}</strong></td>
-                                                    <td>${patient.email || 'N/A'}</td>
-                                                    <td>${patient.phone || '-'}</td>
-                                                    <td>
-                                                        <div class="d-flex flex-wrap gap-1">
-                                                            <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name || 'Patient'}')">
-                                                                📄 History
-                                                            </button>
-                                                            <button class="btn btn-sm btn-success" onclick="doctorManager.writePrescription('${patient.id}', '${patient.full_name || 'Patient'}')">
-                                                                💊 Prescription
-                                                            </button>
-                                                            <button class="btn btn-sm btn-warning" onclick="doctorManager.scheduleFollowUp('${patient.id}', '${patient.full_name || 'Patient'}')">
-                                                                📅 Follow-up
-                                                            </button>
-                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.openChatWithPatient('${patient.id}')">
-                                                                💬 Message
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>`
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;">👥</div>
-                                    <p class="text-muted">No patients found</p>
-                                    <p class="text-muted small">Start by scheduling appointments with patients.</p>
-                                </div>`
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // =============================================
-    // LOAD DASHBOARD - WITH MEDICATION STATS
+    // DASHBOARD
     // =============================================
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
@@ -686,7 +296,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // OTHER METHODS (Appointments, Profile, Chat, etc.)
+    // APPOINTMENTS
     // =============================================
     async loadAppointmentsContent(container) {
         const userId = authManager.getUserId();
@@ -747,6 +357,391 @@ class DoctorManager {
                 </div>
             ` : ''}
         `;
+    }
+
+    // =============================================
+    // PATIENTS - WITH PRESCRIPTION BUTTON
+    // =============================================
+    async loadPatientsContent(container) {
+        const userId = authManager.getUserId();
+        
+        const { data: patients } = await supabase
+            .from('appointments')
+            .select(`
+                patient_id,
+                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone, created_at)
+            `)
+            .eq('doctor_id', userId);
+
+        const patientMap = new Map();
+        if (patients) {
+            patients.forEach(p => {
+                if (p.patient && !patientMap.has(p.patient_id)) {
+                    patientMap.set(p.patient_id, p.patient);
+                }
+            });
+        }
+        const uniquePatients = Array.from(patientMap.values());
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>👥 My Patients</h2>
+                    <p class="text-muted">Manage your patients, write prescriptions, and schedule follow-ups</p>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Patient List</h5>
+                            <span class="badge bg-primary">${uniquePatients.length} patients</span>
+                        </div>
+                        <div class="card-body">
+                            ${uniquePatients && uniquePatients.length > 0
+                                ? `<div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Patient</th>
+                                                <th>Email</th>
+                                                <th>Phone</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${uniquePatients.map(patient => `
+                                                <tr>
+                                                    <td><strong>${patient.full_name || 'Unknown'}</strong></td>
+                                                    <td>${patient.email || 'N/A'}</td>
+                                                    <td>${patient.phone || '-'}</td>
+                                                    <td>
+                                                        <div class="d-flex flex-wrap gap-1">
+                                                            <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name || 'Patient'}')">
+                                                                📄 History
+                                                            </button>
+                                                            <button class="btn btn-sm btn-success" onclick="doctorManager.writePrescription('${patient.id}', '${patient.full_name || 'Patient'}')">
+                                                                💊 Prescription
+                                                            </button>
+                                                            <button class="btn btn-sm btn-warning" onclick="doctorManager.scheduleFollowUp('${patient.id}', '${patient.full_name || 'Patient'}')">
+                                                                📅 Follow-up
+                                                            </button>
+                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.openChatWithPatient('${patient.id}')">
+                                                                💬 Message
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>`
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">👥</div>
+                                    <p class="text-muted">No patients found</p>
+                                    <p class="text-muted small">Start by scheduling appointments with patients.</p>
+                                </div>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // =============================================
+    // WRITE PRESCRIPTION - FULL MEDICATION SCHEDULE
+    // =============================================
+    writePrescription(patientId, patientName) {
+        if (!patientId || patientId === 'undefined' || patientId === 'null') {
+            alert('❌ Error: Invalid patient ID. Please try again.');
+            return;
+        }
+
+        const modalHtml = `
+            <div class="modal-overlay" id="prescriptionModal">
+                <div class="modal" style="max-width: 600px;">
+                    <div class="modal-header" style="background: var(--success); border-radius: var(--radius-lg) var(--radius-lg) 0 0; margin: -32px -32px 0 -32px; padding: 20px 32px;">
+                        <h5 class="modal-title" style="color: white;">💊 Write Prescription - ${patientName || 'Patient'}</h5>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color: white;">×</button>
+                    </div>
+                    <div class="modal-body" style="margin-top: 20px;">
+                        <form id="prescriptionForm">
+                            <div class="form-group">
+                                <label class="form-label">👤 Patient</label>
+                                <input type="text" class="form-control" value="${patientName || 'Patient'}" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">💊 Medication Name *</label>
+                                <input type="text" class="form-control" id="medicationName" placeholder="e.g., Amoxicillin" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">📏 Dosage *</label>
+                                        <input type="text" class="form-control" id="dosage" placeholder="e.g., 500mg" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">⏰ Times Per Day</label>
+                                        <select class="form-control" id="timesPerDay">
+                                            <option value="1 time per day">1 time per day</option>
+                                            <option value="2 times per day" selected>2 times per day</option>
+                                            <option value="3 times per day">3 times per day</option>
+                                            <option value="4 times per day">4 times per day</option>
+                                            <option value="As needed">As needed</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">📅 Duration (Days) *</label>
+                                        <input type="number" class="form-control" id="durationDays" placeholder="e.g., 7" min="1" max="90" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">🍽️ When to Take</label>
+                                <select class="form-control" id="whenToTake">
+                                    <option value="After meals">After meals</option>
+                                    <option value="Before meals">Before meals</option>
+                                    <option value="With food">With food</option>
+                                    <option value="On empty stomach">On empty stomach</option>
+                                    <option value="At bedtime">At bedtime</option>
+                                    <option value="With water">With water</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">📝 Special Instructions</label>
+                                <textarea class="form-control" id="instructions" rows="2" placeholder="Any special instructions..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="sendReminders" checked>
+                                    <label class="form-check-label" for="sendReminders">🔔 Send medication reminders to patient</label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-block">
+                                💾 Save Prescription & Schedule Reminders
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const existingModal = document.getElementById('prescriptionModal');
+        if (existingModal) existingModal.remove();
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const medication = document.getElementById('medicationName').value.trim();
+            const dosage = document.getElementById('dosage').value.trim();
+            const timesPerDay = document.getElementById('timesPerDay').value;
+            const durationDays = parseInt(document.getElementById('durationDays').value) || 7;
+            const whenToTake = document.getElementById('whenToTake').value;
+            const instructions = document.getElementById('instructions').value.trim();
+            const sendReminders = document.getElementById('sendReminders').checked;
+
+            if (!medication || !dosage || !durationDays) {
+                alert('⚠️ Please fill in all required fields.');
+                return;
+            }
+
+            const result = await this.savePrescription(patientId, {
+                medication,
+                dosage,
+                frequency: timesPerDay,
+                duration: `${durationDays} days`,
+                duration_days: durationDays,
+                when_to_take: whenToTake,
+                times_per_day: timesPerDay,
+                instructions: instructions || whenToTake,
+                send_reminders: sendReminders,
+                notes: ''
+            });
+            
+            alert(result.message);
+            if (result.success) {
+                document.getElementById('prescriptionModal').remove();
+                this.loadView('patients');
+            }
+        });
+    }
+
+    async savePrescription(patientId, prescriptionData) {
+        try {
+            const doctorId = authManager.getUserId();
+            
+            if (!patientId || patientId === 'undefined' || patientId === 'null') {
+                throw new Error('Invalid patient ID');
+            }
+            
+            const prescription = {
+                patient_id: patientId,
+                doctor_id: doctorId,
+                medication: prescriptionData.medication,
+                dosage: prescriptionData.dosage,
+                frequency: prescriptionData.frequency || '',
+                duration: prescriptionData.duration || '',
+                duration_days: prescriptionData.duration_days || null,
+                when_to_take: prescriptionData.when_to_take || '',
+                times_per_day: prescriptionData.times_per_day || '',
+                instructions: prescriptionData.instructions || '',
+                send_reminders: prescriptionData.send_reminders || false,
+                notes: prescriptionData.notes || '',
+                issued_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase
+                .from('prescriptions')
+                .insert([prescription]);
+
+            if (error) throw error;
+
+            if (prescriptionData.send_reminders) {
+                await this.createMedicationSchedule(patientId, prescriptionData);
+                await this.sendMedicationReminders(patientId, prescriptionData);
+            }
+
+            await this.notifyPatientPrescription(patientId, prescriptionData);
+
+            return { success: true, message: '✅ Prescription saved successfully! Medication schedule created.' };
+        } catch (error) {
+            console.error('❌ Prescription error:', error);
+            return { success: false, message: error.message || 'Failed to save prescription.' };
+        }
+    }
+
+    // =============================================
+    // CREATE MEDICATION SCHEDULE
+    // =============================================
+    async createMedicationSchedule(patientId, prescriptionData) {
+        try {
+            const timesPerDayNum = this.getTimesPerDayNumber(prescriptionData.times_per_day);
+            const intervalHours = Math.floor(12 / timesPerDayNum);
+            const scheduleEntries = [];
+            const startDate = new Date();
+
+            for (let d = 0; d < prescriptionData.duration_days; d++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + d);
+                
+                for (let t = 0; t < timesPerDayNum; t++) {
+                    const hour = 8 + (t * intervalHours);
+                    const reminderTime = new Date(date);
+                    reminderTime.setHours(hour, 0, 0, 0);
+                    
+                    scheduleEntries.push({
+                        patient_id: patientId,
+                        medication: prescriptionData.medication,
+                        dosage: prescriptionData.dosage,
+                        scheduled_time: reminderTime.toISOString(),
+                        taken: false,
+                        created_at: new Date().toISOString()
+                    });
+                }
+            }
+
+            const { error } = await supabase
+                .from('medication_schedule')
+                .insert(scheduleEntries);
+
+            if (error) {
+                console.error('Error creating medication schedule:', error);
+            } else {
+                console.log(`✅ Created ${scheduleEntries.length} medication schedule entries`);
+            }
+
+        } catch (error) {
+            console.error('Error creating medication schedule:', error);
+        }
+    }
+
+    getTimesPerDayNumber(timesPerDay) {
+        if (timesPerDay.includes('1')) return 1;
+        if (timesPerDay.includes('2')) return 2;
+        if (timesPerDay.includes('3')) return 3;
+        if (timesPerDay.includes('4')) return 4;
+        return 2;
+    }
+
+    // =============================================
+    // SEND MEDICATION REMINDERS
+    // =============================================
+    async sendMedicationReminders(patientId, prescriptionData) {
+        try {
+            const doctorId = authManager.getUserId();
+            const { data: doctorData } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', doctorId)
+                .single();
+
+            const doctorName = doctorData?.full_name || 'Doctor';
+            const timesPerDayNum = this.getTimesPerDayNumber(prescriptionData.times_per_day);
+            const intervalHours = Math.floor(12 / timesPerDayNum);
+            const reminderTimes = [];
+
+            for (let i = 0; i < timesPerDayNum; i++) {
+                const hour = 8 + (i * intervalHours);
+                reminderTimes.push(`${hour.toString().padStart(2, '0')}:00`);
+            }
+
+            const messageContent = `💊 **Medication Schedule**\n\n` +
+                `Dr. ${doctorName} has prescribed:\n` +
+                `📋 **${prescriptionData.medication}** - ${prescriptionData.dosage}\n` +
+                `⏰ **Take ${prescriptionData.times_per_day}** at: ${reminderTimes.join(', ')}\n` +
+                `🍽️ **When to take:** ${prescriptionData.when_to_take}\n` +
+                `📅 **Duration:** ${prescriptionData.duration}\n` +
+                `💡 **Instructions:** ${prescriptionData.instructions}\n\n` +
+                `🔔 You will receive reminders when it's time to take your medication.`;
+
+            await supabase
+                .from('messages')
+                .insert([{
+                    sender_id: doctorId,
+                    receiver_id: patientId,
+                    appointment_id: null,
+                    content: messageContent,
+                    sent_at: new Date().toISOString()
+                }]);
+
+        } catch (error) {
+            console.error('Error sending medication reminders:', error);
+        }
+    }
+
+    async notifyPatientPrescription(patientId, prescriptionData) {
+        try {
+            const doctorId = authManager.getUserId();
+            const { data: doctorData } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', doctorId)
+                .single();
+
+            const doctorName = doctorData?.full_name || 'Doctor';
+
+            const messageContent = `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${prescriptionData.medication} - ${prescriptionData.dosage}\n⏰ Take ${prescriptionData.frequency}\n📅 Duration: ${prescriptionData.duration}\n📝 ${prescriptionData.instructions}\n\n🔔 You will receive reminders when it's time to take your medication.`;
+
+            await supabase
+                .from('messages')
+                .insert([{
+                    sender_id: doctorId,
+                    receiver_id: patientId,
+                    appointment_id: null,
+                    content: messageContent,
+                    sent_at: new Date().toISOString()
+                }]);
+
+        } catch (error) {
+            console.error('Error notifying patient:', error);
+        }
     }
 
     // =============================================
@@ -1014,6 +1009,9 @@ class DoctorManager {
         }
     }
 
+    // =============================================
+    // VIEW CONSULTATION
+    // =============================================
     async viewConsultation(appointmentId) {
         const { data: records } = await supabase
             .from('medical_records')
@@ -1064,6 +1062,9 @@ class DoctorManager {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
+    // =============================================
+    // VIEW PATIENT HISTORY
+    // =============================================
     async viewPatientHistory(patientId, patientName) {
         const { data: records } = await supabase
             .from('medical_records')
@@ -1120,6 +1121,9 @@ class DoctorManager {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
+    // =============================================
+    // PROFILE
+    // =============================================
     async loadProfileContent(container) {
         const profile = authManager.getUserProfile();
         
@@ -1194,6 +1198,9 @@ class DoctorManager {
         }
     }
 
+    // =============================================
+    // VIDEO CALL
+    // =============================================
     joinVideoCall(appointmentId, roomId, patientName) {
         if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
             alert('❌ No video room found for this appointment.');
@@ -1211,6 +1218,9 @@ class DoctorManager {
         window.open(videoUrl, '_blank', 'width=900,height=700');
     }
 
+    // =============================================
+    // CHAT
+    // =============================================
     openChat() {
         if (window.chatManager) {
             window.chatManager.showChatInterface();

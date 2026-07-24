@@ -1,5 +1,5 @@
 /*
- * File: patient.js - ALL BUTTONS FIXED WITH CONTENT CONTAINER
+ * File: patient.js - Complete with Medication Tracking
  */
 
 class PatientManager {
@@ -96,13 +96,11 @@ class PatientManager {
         const content = document.getElementById('patientContent');
         if (!content) {
             console.error('Content element not found - recreating...');
-            // Try to recreate the content container
             const container = document.querySelector('.container.mt-4');
             if (container) {
                 const newContent = document.createElement('div');
                 newContent.id = 'patientContent';
                 container.appendChild(newContent);
-                // Retry loading
                 setTimeout(() => this.loadView(view), 100);
                 return;
             }
@@ -170,7 +168,7 @@ class PatientManager {
     }
 
     // =============================================
-    // CHAT CONTENT - FIXED
+    // CHAT CONTENT
     // =============================================
     async loadChatContent(container) {
         console.log('Loading chat content...');
@@ -207,7 +205,7 @@ class PatientManager {
     }
 
     // =============================================
-    // DASHBOARD CONTENT
+    // DASHBOARD - WITH MEDICATION REMINDERS
     // =============================================
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
@@ -224,6 +222,7 @@ class PatientManager {
             .order('scheduled_at', { ascending: true })
             .limit(3);
 
+        // Get today's medication schedule
         const { data: todaysMeds } = await supabase
             .from('medication_schedule')
             .select('*')
@@ -231,7 +230,7 @@ class PatientManager {
             .eq('taken', false)
             .gte('scheduled_time', new Date().toISOString())
             .order('scheduled_time', { ascending: true })
-            .limit(5);
+            .limit(10);
 
         const { data: pendingPayments } = await supabase
             .from('appointments')
@@ -252,6 +251,12 @@ class PatientManager {
 
         const totalSpent = paidAppointments?.reduce((sum, apt) => sum + (apt.amount_paid || 0), 0) || 0;
 
+        // Get active prescriptions count
+        const { count: activePrescriptions } = await supabase
+            .from('prescriptions')
+            .select('*', { count: 'exact', head: true })
+            .eq('patient_id', userId);
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
@@ -260,12 +265,14 @@ class PatientManager {
                 </div>
             </div>
 
+            <!-- Medication Reminders - PROMINENT SECTION -->
             ${todaysMeds && todaysMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
-                        <div class="card border-info">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="mb-0">💊 Today's Medication Reminders</h5>
+                        <div class="card border-success" style="border-width: 2px;">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">💊 Today's Medication Schedule</h5>
+                                <span class="badge bg-light text-dark">${todaysMeds.length} pending</span>
                             </div>
                             <div class="card-body">
                                 ${todaysMeds.map(med => `
@@ -276,7 +283,9 @@ class PatientManager {
                                             ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
                                         </div>
                                         <div>
-                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
+                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">
+                                                ✅ Mark Taken
+                                            </button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -284,7 +293,21 @@ class PatientManager {
                         </div>
                     </div>
                 </div>
-            ` : ''}
+            ` : `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">💊 Medications</h5>
+                            </div>
+                            <div class="card-body text-center py-3">
+                                <p class="mb-0">✅ No pending medications for today</p>
+                                <small class="text-muted">You have ${activePrescriptions || 0} active prescription(s)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `}
 
             ${pendingPayments && pendingPayments.length > 0 ? `
                 <div class="row mt-3">
@@ -360,6 +383,7 @@ class PatientManager {
                         <div class="card-body">
                             <p><strong>Total Paid:</strong> KES ${totalSpent.toLocaleString()}</p>
                             <p><strong>Pending Video Payments:</strong> ${pendingPayments?.length || 0}</p>
+                            <p><strong>Active Prescriptions:</strong> ${activePrescriptions || 0}</p>
                             <p><strong>Pricing:</strong></p>
                             <ul class="small">
                                 <li>🎥 Video Call: <strong>KES 300</strong> (pay after call)</li>
@@ -425,6 +449,7 @@ class PatientManager {
         console.log('Loading medical records...');
         const userId = authManager.getUserId();
         
+        // Get medical records with prescriptions
         const { data: records } = await supabase
             .from('medical_records')
             .select(`
@@ -436,6 +461,7 @@ class PatientManager {
             .eq('patient_id', userId)
             .order('created_at', { ascending: false });
 
+        // Get standalone prescriptions (not linked to medical records)
         const { data: standalonePrescriptions } = await supabase
             .from('prescriptions')
             .select(`
@@ -446,6 +472,7 @@ class PatientManager {
             .is('appointment_id', null)
             .order('issued_at', { ascending: false });
 
+        // Get medication schedule (reminders)
         const { data: medicationSchedule } = await supabase
             .from('medication_schedule')
             .select('*')
@@ -464,6 +491,7 @@ class PatientManager {
                 </div>
             </div>
 
+            <!-- Today's Medication Schedule -->
             ${upcomingMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
@@ -495,6 +523,7 @@ class PatientManager {
                 </div>
             ` : ''}
 
+            <!-- Active Prescriptions -->
             ${standalonePrescriptions && standalonePrescriptions.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
@@ -529,6 +558,7 @@ class PatientManager {
                 </div>
             ` : ''}
 
+            <!-- Medical Records -->
             <div class="row mt-3">
                 <div class="col-12">
                     <h4>📄 Medical Records</h4>
