@@ -1,5 +1,5 @@
 /*
- * File: patient.js - Complete Patient Module with Navigation & Booking Fixes
+ * File: patient.js - ALL BUTTONS FIXED
  */
 
 class PatientManager {
@@ -80,18 +80,17 @@ class PatientManager {
                         <i class="fas fa-arrow-left"></i> Back
                     </button>
                 </div>
-                <div id="patientContent">
-                    <!-- Content will be loaded here -->
-                </div>
+                <div id="patientContent"></div>
             </div>
         `;
     }
 
     attachEvents() {
-        // Navigation links
+        // Navigation links - FIXED
         document.querySelectorAll('[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 const view = link.dataset.view;
                 console.log('🔗 Navigating to:', view);
                 this.loadView(view);
@@ -99,12 +98,15 @@ class PatientManager {
         });
 
         // Logout
-        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-            const result = await authManager.logout();
-            if (result.success) {
-                window.location.reload();
-            }
-        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                const result = await authManager.logout();
+                if (result.success) {
+                    window.location.reload();
+                }
+            });
+        }
     }
 
     async loadView(view) {
@@ -115,7 +117,7 @@ class PatientManager {
             return;
         }
 
-        // Show back button for views other than dashboard
+        // Show/hide back button
         const backBtn = document.getElementById('backButtonContainer');
         if (backBtn) {
             backBtn.style.display = view === 'dashboard' ? 'none' : 'block';
@@ -189,69 +191,41 @@ class PatientManager {
     async loadChatContent(container) {
         console.log('💬 Loading chat content...');
         
-        if (window.chatManager && typeof window.chatManager.showChatInterface === 'function') {
-            container.innerHTML = `
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-comment-medical"></i> Messages</h5>
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-comment-medical"></i> Messages</h5>
+                        </div>
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-comment-dots" style="font-size: 4rem; color: var(--text-lighter);"></i>
+                            <h5 class="mt-3">Chat Feature</h5>
+                            <p class="text-muted">Connect with your doctors in real-time</p>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Chat is being initialized. Please wait...
                             </div>
-                            <div class="card-body" id="chatContainer" style="min-height: 400px;">
-                                <div class="text-center py-5">
-                                    <i class="fas fa-comment-dots" style="font-size: 3rem; color: var(--text-lighter);"></i>
-                                    <p class="text-muted mt-3">Loading chat...</p>
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <button class="btn btn-primary mt-3" onclick="patientManager.loadView('chat')">
+                                <i class="fas fa-sync"></i> Retry
+                            </button>
+                            <button class="btn btn-outline-secondary mt-3 ms-2" onclick="patientManager.loadView('dashboard')">
+                                <i class="fas fa-arrow-left"></i> Back to Dashboard
+                            </button>
                         </div>
                     </div>
                 </div>
-            `;
+            </div>
+        `;
 
+        // Try to load chat if available
+        if (window.chatManager && typeof window.chatManager.showChatInterface === 'function') {
             setTimeout(() => {
                 try {
                     window.chatManager.showChatInterface();
                 } catch (error) {
                     console.error('Chat load error:', error);
-                    document.getElementById('chatContainer').innerHTML = `
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle"></i> Chat feature is being loaded. Please try again.
-                        </div>
-                        <button class="btn btn-primary mt-3" onclick="patientManager.loadView('chat')">
-                            <i class="fas fa-sync"></i> Retry
-                        </button>
-                    `;
                 }
-            }, 300);
-        } else {
-            container.innerHTML = `
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-comment-medical"></i> Messages</h5>
-                            </div>
-                            <div class="card-body text-center py-5">
-                                <i class="fas fa-comment-dots" style="font-size: 4rem; color: var(--text-lighter);"></i>
-                                <h5 class="mt-3">Chat Feature</h5>
-                                <p class="text-muted">Connect with your doctors in real-time</p>
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i> Chat is being initialized. Please wait...
-                                </div>
-                                <button class="btn btn-primary mt-3" onclick="patientManager.loadView('chat')">
-                                    <i class="fas fa-sync"></i> Retry
-                                </button>
-                                <button class="btn btn-outline-secondary mt-3 ms-2" onclick="patientManager.loadView('dashboard')">
-                                    <i class="fas fa-arrow-left"></i> Back to Dashboard
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            }, 500);
         }
     }
 
@@ -278,7 +252,6 @@ class PatientManager {
             .order('scheduled_at', { ascending: true })
             .limit(3);
 
-        const today = new Date().toISOString().split('T')[0];
         const { data: todaysMeds } = await supabase
             .from('medication_schedule')
             .select('*')
@@ -742,7 +715,7 @@ class PatientManager {
     }
 
     // =============================================
-    // BOOK APPOINTMENT - FIXED
+    // BOOK APPOINTMENT
     // =============================================
     async bookAppointment(doctorId, consultationType, scheduledAt, notes, fee) {
         try {
@@ -798,7 +771,7 @@ class PatientManager {
                 throw new Error(error.message);
             }
 
-            // Try to log activity, but don't fail if it doesn't work
+            // Try to log activity
             try {
                 if (authManager && typeof authManager.logActivity === 'function') {
                     await authManager.logActivity(userId, 'BOOK_APPOINTMENT', 
@@ -823,7 +796,7 @@ class PatientManager {
     }
 
     // =============================================
-    // SHOW BOOKING MODAL - FIXED
+    // SHOW BOOKING MODAL
     // =============================================
     showBookingModal() {
         // Refresh doctors list
@@ -953,7 +926,7 @@ class PatientManager {
     }
 
     // =============================================
-    // REFRESH DOCTORS - FIXED
+    // REFRESH DOCTORS
     // =============================================
     async refreshDoctors() {
         try {
@@ -1190,4 +1163,4 @@ class PatientManager {
 // Initialize patient manager
 const patientManager = new PatientManager();
 window.patientManager = patientManager;
-console.log('PatientManager ');
+console.log('PatientManager initialized');
