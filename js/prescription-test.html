@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prescription Form Test</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: #10B981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16,185,129,0.35);
+        }
+        
+        .btn-secondary {
+            background: #2563EB;
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 8px 25px rgba(37,99,235,0.35);
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 650px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #10B981;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0;
+            color: #0F172A;
+        }
+        
+        .modal-subtitle {
+            display: block;
+            font-size: 0.85rem;
+            color: #64748B;
+            margin-top: 2px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #94A3B8;
+            padding: 0 8px;
+            transition: 0.3s;
+            line-height: 1;
+        }
+        
+        .modal-close:hover {
+            color: #0F172A;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: #0F172A;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #F8FAFC;
+            font-family: Inter, sans-serif;
+            transition: border-color 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #2563EB;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 16px 0;
+            padding: 12px;
+            background: #F8FAFC;
+            border-radius: 8px;
+        }
+        
+        .form-check input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .form-check label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: #0F172A;
+        }
+        
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: #10B981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: Inter, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16,185,129,0.35);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Prescription Form Test</h1>
+        <p>Click the buttons below to open the prescription modal:</p>
+        
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn" onclick="openPrescriptionModal('p1', 'John Doe')">
+                💊 Prescribe for John Doe
+            </button>
+            <button class="btn btn-secondary" onclick="openPrescriptionModal('p2', 'Jane Smith')">
+                💊 Prescribe for Jane Smith
+            </button>
+        </div>
+        
+        <div style="margin-top:30px;padding:20px;background:#FEF3C7;border-radius:12px;border-left:4px solid #F59E0B;">
+            <strong>⚠️ Note:</strong> This is a standalone test version. The form will log the data to the console.
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="prescriptionModal">
+        <div class="modal-content">
+            <!-- Header -->
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title">💊 Write Prescription</h5>
+                    <small class="modal-subtitle" id="patientNameDisplay">For: Loading...</small>
+                </div>
+                <button class="modal-close" onclick="closePrescriptionModal()">×</button>
+            </div>
+
+            <!-- Form -->
+            <form id="prescriptionForm">
+                <input type="hidden" id="prescriptionPatientId">
+                
+                <div class="form-group">
+                    <label class="form-label">💊 Medication Name *</label>
+                    <input type="text" class="form-control" id="medicationName" 
+                        placeholder="e.g., Amoxicillin, Lisinopril, Metformin"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📏 Dosage & Strength *</label>
+                    <input type="text" class="form-control" id="dosage" 
+                        placeholder="e.g., 500mg, 10mg, 25mg/5ml"
+                        required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">⏰ Frequency *</label>
+                        <select class="form-control" id="frequency">
+                            <option value="Once daily">Once daily</option>
+                            <option value="Twice daily" selected>Twice daily</option>
+                            <option value="Three times daily">Three times daily</option>
+                            <option value="Four times daily">Four times daily</option>
+                            <option value="Every 6 hours">Every 6 hours</option>
+                            <option value="Every 8 hours">Every 8 hours</option>
+                            <option value="Every 12 hours">Every 12 hours</option>
+                            <option value="As needed">As needed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">📅 Duration *</label>
+                        <select class="form-control" id="duration">
+                            <option value="3 days">3 days</option>
+                            <option value="5 days">5 days</option>
+                            <option value="7 days" selected>7 days</option>
+                            <option value="10 days">10 days</option>
+                            <option value="14 days">14 days</option>
+                            <option value="21 days">21 days</option>
+                            <option value="30 days">30 days</option>
+                            <option value="60 days">60 days</option>
+                            <option value="90 days">90 days</option>
+                            <option value="Ongoing">Ongoing</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🍽️ When to Take</label>
+                    <select class="form-control" id="whenToTake">
+                        <option value="After meals" selected>After meals</option>
+                        <option value="Before meals">Before meals</option>
+                        <option value="With food">With food</option>
+                        <option value="On empty stomach">On empty stomach</option>
+                        <option value="At bedtime">At bedtime</option>
+                        <option value="In the morning">In the morning</option>
+                        <option value="In the evening">In the evening</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📝 Special Instructions</label>
+                    <textarea class="form-control" id="instructions" rows="3" 
+                        placeholder="e.g., Take with plenty of water, Avoid alcohol, Complete full course..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📌 Additional Notes</label>
+                    <textarea class="form-control" id="notes" rows="2" 
+                        placeholder="Any additional notes or warnings..."></textarea>
+                </div>
+
+                <div class="form-check">
+                    <input type="checkbox" id="sendReminders" checked>
+                    <label for="sendReminders">🔔 Send medication reminders to patient</label>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    💾 Save Prescription & Schedule Reminders
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Open prescription modal
+        function openPrescriptionModal(patientId, patientName) {
+            console.log('📝 Opening prescription modal for:', patientName, 'ID:', patientId);
+            
+            const modal = document.getElementById('prescriptionModal');
+            const nameDisplay = document.getElementById('patientNameDisplay');
+            const patientIdInput = document.getElementById('prescriptionPatientId');
+            
+            // Set patient info
+            nameDisplay.textContent = `For: ${patientName || 'Patient'}`;
+            patientIdInput.value = patientId || '';
+            
+            // Clear form
+            document.getElementById('medicationName').value = '';
+            document.getElementById('dosage').value = '';
+            document.getElementById('instructions').value = '';
+            document.getElementById('notes').value = '';
+            document.getElementById('frequency').value = 'Twice daily';
+            document.getElementById('duration').value = '7 days';
+            document.getElementById('whenToTake').value = 'After meals';
+            document.getElementById('sendReminders').checked = true;
+            
+            // Show modal
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // Focus first field
+            setTimeout(() => {
+                document.getElementById('medicationName').focus();
+            }, 300);
+        }
+
+        // Close prescription modal
+        function closePrescriptionModal() {
+            const modal = document.getElementById('prescriptionModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Handle form submission
+        document.getElementById('prescriptionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const patientId = document.getElementById('prescriptionPatientId').value;
+            const medication = document.getElementById('medicationName').value.trim();
+            const dosage = document.getElementById('dosage').value.trim();
+            const frequency = document.getElementById('frequency').value;
+            const duration = document.getElementById('duration').value;
+            const whenToTake = document.getElementById('whenToTake').value;
+            const instructions = document.getElementById('instructions').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+            const sendReminders = document.getElementById('sendReminders').checked;
+
+            // Validate
+            if (!medication) {
+                alert('⚠️ Please enter the medication name.');
+                document.getElementById('medicationName').focus();
+                return;
+            }
+            if (!dosage) {
+                alert('⚠️ Please enter the dosage.');
+                document.getElementById('dosage').focus();
+                return;
+            }
+
+            // Build prescription data
+            const prescriptionData = {
+                patient_id: patientId,
+                medication: medication,
+                dosage: dosage,
+                frequency: frequency,
+                duration: duration,
+                when_to_take: whenToTake,
+                instructions: instructions || 'Take as directed',
+                notes: notes || '',
+                send_reminders: sendReminders,
+                issued_at: new Date().toISOString()
+            };
+
+            console.log('📋 Prescription Data:', prescriptionData);
+            
+            // Show success message
+            alert('✅ Prescription saved successfully!\n\n' +
+                `Patient: ${document.getElementById('patientNameDisplay').textContent.replace('For: ', '')}\n` +
+                `Medication: ${medication}\n` +
+                `Dosage: ${dosage}\n` +
+                `Frequency: ${frequency}\n` +
+                `Duration: ${duration}\n` +
+                `Reminders: ${sendReminders ? '✅ Enabled' : '❌ Disabled'}`);
+            
+            // Close modal
+            closePrescriptionModal();
+        });
+
+        // Close modal on overlay click
+        document.getElementById('prescriptionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePrescriptionModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePrescriptionModal();
+            }
+        });
+
+        console.log('✅ Prescription form test ready!');
+    </script>
+</body>
+</html>
