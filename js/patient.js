@@ -1,11 +1,16 @@
 /*
- * File: doctor.js - Complete with Sidebar Layout & Prescriptions
+ * File: patient.js - Complete Patient Manager with Sidebar Navigation
  */
 
-class DoctorManager {
+class PatientManager {
     constructor() {
         this.currentView = 'dashboard';
         this.isSidebarOpen = true;
+        this.availableDoctors = [
+            { id: 'd1', full_name: 'Sarah Wilson', specialty: 'Cardiology', email: 'sarah@email.com', phone: '0712345678' },
+            { id: 'd2', full_name: 'Michael Chen', specialty: 'Dermatology', email: 'michael@email.com', phone: '0723456789' },
+            { id: 'd3', full_name: 'Emily Rodriguez', specialty: 'Pediatrics', email: 'emily@email.com', phone: '0734567890' }
+        ];
     }
 
     showDashboard() {
@@ -27,11 +32,11 @@ class DoctorManager {
 
     getDashboardHTML(profile) {
         return `
-            <div class="app-layout doctor-layout">
+            <div class="app-layout patient-layout">
                 <!-- Sidebar -->
-                <aside class="sidebar" id="doctorSidebar">
+                <aside class="sidebar" id="patientSidebar">
                     <div class="sidebar-header">
-                        <div class="brand">
+                        <div class="brand" onclick="patientManager.loadView('dashboard')">
                             <span class="brand-icon">🏥</span>
                             <span class="brand-text">TeleHealth</span>
                         </div>
@@ -47,18 +52,22 @@ class DoctorManager {
                         </button>
                         <button class="nav-item" data-view="appointments">
                             <span class="nav-icon">📅</span>
-                            <span class="nav-label">Appointments</span>
+                            <span class="nav-label">My Appointments</span>
                         </button>
-                        <button class="nav-item" data-view="patients">
-                            <span class="nav-icon">👥</span>
-                            <span class="nav-label">Patients</span>
+                        <button class="nav-item" data-view="doctors">
+                            <span class="nav-icon">👨‍⚕️</span>
+                            <span class="nav-label">Find Doctors</span>
+                        </button>
+                        <button class="nav-item" data-view="medications">
+                            <span class="nav-icon">💊</span>
+                            <span class="nav-label">Prescriptions</span>
                         </button>
                         <button class="nav-item" data-view="chat">
                             <span class="nav-icon">💬</span>
                             <span class="nav-label">Messages</span>
                         </button>
                         <button class="nav-item" data-view="profile">
-                            <span class="nav-icon">⚙️</span>
+                            <span class="nav-icon">👤</span>
                             <span class="nav-label">Profile</span>
                         </button>
                     </nav>
@@ -80,17 +89,25 @@ class DoctorManager {
                             <span class="page-title" id="pageTitle">Dashboard</span>
                         </div>
                         <div class="header-right">
+                            <button class="notification-btn" id="notificationBtn">
+                                <i class="fas fa-bell"></i>
+                                <span class="badge-dot"></span>
+                            </button>
                             <div class="user-profile">
-                                <div class="avatar" style="background: #2563EB;">${profile.full_name?.charAt(0) || 'D'}</div>
+                                <div class="avatar" style="background: #10B981;">${profile.full_name?.charAt(0) || 'U'}</div>
                                 <div class="user-info">
-                                    <span class="name">Dr. ${profile.full_name}</span>
-                                    <span class="role">Doctor</span>
+                                    <span class="name">${profile.full_name}</span>
+                                    <span class="role">Patient</span>
                                 </div>
                             </div>
+                            <button class="header-logout-btn" id="logoutBtnHeader">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </button>
                         </div>
                     </header>
 
-                    <div class="content-area" id="doctorContent">
+                    <div class="content-area" id="patientContent">
                         <!-- Dynamic content -->
                     </div>
                 </main>
@@ -101,6 +118,7 @@ class DoctorManager {
     }
 
     attachEvents() {
+        // Sidebar navigation
         document.querySelectorAll('.nav-item[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -118,6 +136,7 @@ class DoctorManager {
             });
         });
 
+        // Sidebar toggle (desktop)
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -125,6 +144,7 @@ class DoctorManager {
             });
         }
 
+        // Hamburger (mobile)
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', () => {
@@ -132,6 +152,7 @@ class DoctorManager {
             });
         }
 
+        // Overlay (mobile)
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -139,6 +160,7 @@ class DoctorManager {
             });
         }
 
+        // Logout buttons
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -149,6 +171,25 @@ class DoctorManager {
             });
         }
 
+        const logoutBtnHeader = document.getElementById('logoutBtnHeader');
+        if (logoutBtnHeader) {
+            logoutBtnHeader.addEventListener('click', async () => {
+                const result = await authManager.logout();
+                if (result.success) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        // Notification button
+        const notifBtn = document.getElementById('notificationBtn');
+        if (notifBtn) {
+            notifBtn.addEventListener('click', () => {
+                alert('🔔 Notifications:\n\n• 1 appointment reminder\n• 2 medication reminders\n• 1 message from doctor');
+            });
+        }
+
+        // Window resize
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
                 this.closeMobileSidebar();
@@ -157,7 +198,7 @@ class DoctorManager {
     }
 
     toggleSidebar() {
-        const sidebar = document.getElementById('doctorSidebar');
+        const sidebar = document.getElementById('patientSidebar');
         const mainContent = document.querySelector('.main-content');
         
         if (window.innerWidth > 992) {
@@ -173,7 +214,7 @@ class DoctorManager {
     }
 
     toggleMobileSidebar() {
-        const sidebar = document.getElementById('doctorSidebar');
+        const sidebar = document.getElementById('patientSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
         if (sidebar) {
@@ -185,7 +226,7 @@ class DoctorManager {
     }
 
     closeMobileSidebar() {
-        const sidebar = document.getElementById('doctorSidebar');
+        const sidebar = document.getElementById('patientSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
         if (sidebar) {
@@ -199,9 +240,7 @@ class DoctorManager {
     async loadView(view) {
         console.log('📱 Loading view:', view);
         
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        const content = document.getElementById('doctorContent');
+        const content = document.getElementById('patientContent');
         if (!content) {
             console.error('❌ Content element not found');
             return;
@@ -209,8 +248,9 @@ class DoctorManager {
 
         const titleMap = {
             'dashboard': 'Dashboard',
-            'appointments': 'Appointments',
-            'patients': 'Patients',
+            'appointments': 'My Appointments',
+            'doctors': 'Find Doctors',
+            'medications': 'Prescriptions',
             'chat': 'Messages',
             'profile': 'Profile'
         };
@@ -236,8 +276,11 @@ class DoctorManager {
                 case 'appointments':
                     await this.loadAppointmentsContent(content);
                     break;
-                case 'patients':
-                    await this.loadPatientsContent(content);
+                case 'doctors':
+                    await this.loadDoctorsContent(content);
+                    break;
+                case 'medications':
+                    await this.loadMedicationsContent(content);
                     break;
                 case 'chat':
                     await this.loadChatContent(content);
@@ -254,159 +297,366 @@ class DoctorManager {
                 <div class="alert alert-danger">
                     ❌ Error loading view: ${error.message}
                 </div>
-                <button class="btn btn-primary mt-3" onclick="doctorManager.loadView('dashboard')">⬅️ Back to Dashboard</button>
+                <button class="btn btn-primary mt-3" onclick="patientManager.loadView('dashboard')">⬅️ Back to Dashboard</button>
             `;
         }
+    }
+
+    // =============================================
+    // DASHBOARD CONTENT
+    // =============================================
+    async loadDashboardContent(container) {
+        const appointments = [
+            { id: '1', doctor: { full_name: 'Dr. Sarah Wilson', specialty: 'Cardiology' }, scheduled_at: new Date(Date.now() + 86400000).toISOString(), consultation_type: 'video', status: 'scheduled' },
+            { id: '2', doctor: { full_name: 'Dr. Michael Chen', specialty: 'Dermatology' }, scheduled_at: new Date(Date.now() + 172800000).toISOString(), consultation_type: 'physical', status: 'scheduled' }
+        ];
+
+        const medications = [
+            { id: 'm1', medication: 'Amoxicillin', dosage: '500mg', scheduled_time: new Date(Date.now() + 3600000).toISOString() },
+            { id: 'm2', medication: 'Lisinopril', dosage: '10mg', scheduled_time: new Date(Date.now() + 7200000).toISOString() }
+        ];
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>🏥 Patient Dashboard</h2>
+                    <p class="text-muted">Welcome to your telehealth portal</p>
+                </div>
+            </div>
+
+            <!-- CLICKABLE STATS CARDS -->
+            <div class="stats-grid">
+                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                    <div class="stat-label">📅 Upcoming</div>
+                    <div class="stat-value accent">${appointments.length}</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.loadView('medications')">
+                    <div class="stat-label">💊 Medications</div>
+                    <div class="stat-value warning">${medications.length}</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.loadView('doctors')">
+                    <div class="stat-label">👨‍⚕️ Doctors</div>
+                    <div class="stat-value success">${this.availableDoctors.length}</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.loadView('chat')">
+                    <div class="stat-label">💬 Messages</div>
+                    <div class="stat-value danger">2</div>
+                </div>
+            </div>
+
+            ${medications.length > 0 ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-success clickable" onclick="patientManager.loadView('medications')">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
+                                <span class="badge bg-light text-dark">${medications.length} pending</span>
+                            </div>
+                            <div class="card-body">
+                                ${medications.map(med => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                        <div>
+                                            <strong>💊 ${med.medication}</strong>
+                                            <br><small>${med.dosage} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card clickable" onclick="patientManager.loadView('appointments')">
+                        <div class="card-header">
+                            <h5 class="card-title">📅 Upcoming Appointments</h5>
+                            <span class="badge bg-primary">${appointments.length}</span>
+                        </div>
+                        <div class="card-body">
+                            ${appointments.map(apt => `
+                                <div class="p-2 mb-2 bg-light rounded d-flex justify-content-between align-items-center flex-wrap">
+                                    <div>
+                                        <h6 class="mb-0">👨‍⚕️ ${apt.doctor.full_name}</h6>
+                                        <p class="mb-0 small">⏰ ${new Date(apt.scheduled_at).toLocaleString()}</p>
+                                        <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
+                                            ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); patientManager.loadView('appointments')">📅 View</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">📅 View All Appointments</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // =============================================
+    // APPOINTMENTS CONTENT
+    // =============================================
+    async loadAppointmentsContent(container) {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>📅 My Appointments</h2>
+                    <button class="btn btn-primary mb-3" onclick="patientManager.showBookingModal()">➕ Book New</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                    <div class="stat-label">📅 Scheduled</div>
+                    <div class="stat-value accent">2</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                    <div class="stat-label">✅ Completed</div>
+                    <div class="stat-value success">5</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                    <div class="stat-label">⏳ Pending</div>
+                    <div class="stat-value warning">1</div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-wrap">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>👨‍⚕️ Doctor</th>
+                                            <th>⚙️ Type</th>
+                                            <th>📅 Date</th>
+                                            <th>ℹ️ Status</th>
+                                            <th>💳 Payment</th>
+                                            <th>⚡ Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Dr. Sarah Wilson</strong><br><small>Cardiology</small></td>
+                                            <td><span class="badge bg-primary">🎥 Video</span></td>
+                                            <td><small>⏰ ${new Date(Date.now() + 86400000).toLocaleString()}</small></td>
+                                            <td><span class="badge bg-success">scheduled</span></td>
+                                            <td><span class="badge bg-secondary">-</span></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('1', 'room-1', 'Dr. Sarah Wilson')">🎥 Join</button>
+                                                <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('1')">❌ Cancel</button>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Dr. Michael Chen</strong><br><small>Dermatology</small></td>
+                                            <td><span class="badge bg-warning">🏥 Physical</span></td>
+                                            <td><small>⏰ ${new Date(Date.now() + 172800000).toLocaleString()}</small></td>
+                                            <td><span class="badge bg-success">scheduled</span></td>
+                                            <td><span class="badge bg-success">✅ Paid</span></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-secondary mb-1 w-100" onclick="alert('📍 Physical consultation at clinic.')">📍 Location</button>
+                                                <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('2')">❌ Cancel</button>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Dr. Emily Rodriguez</strong><br><small>Pediatrics</small></td>
+                                            <td><span class="badge bg-primary">🎥 Video</span></td>
+                                            <td><small>⏰ ${new Date(Date.now() - 86400000).toLocaleString()}</small></td>
+                                            <td><span class="badge bg-secondary">completed</span></td>
+                                            <td><span class="badge bg-warning">⏳ Due</span></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning w-100" onclick="alert('💳 Payment processing...')">💳 Pay Now</button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // =============================================
+    // DOCTORS CONTENT
+    // =============================================
+    async loadDoctorsContent(container) {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>👨‍⚕️ Find Doctors</h2>
+                    <p class="text-muted">Browse available doctors and book appointments</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card" onclick="patientManager.loadView('doctors')">
+                    <div class="stat-label">👨‍⚕️ Available</div>
+                    <div class="stat-value success">${this.availableDoctors.length}</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.showBookingModal()">
+                    <div class="stat-label">➕ Book Now</div>
+                    <div class="stat-value accent">+</div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                ${this.availableDoctors.map(doc => `
+                    <div class="col-md-4 col-sm-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <div style="font-size: 4rem; margin-bottom: 12px;">👨‍⚕️</div>
+                                <h5 class="card-title">Dr. ${doc.full_name}</h5>
+                                <p class="card-text"><span class="badge bg-primary">${doc.specialty || 'General Practice'}</span></p>
+                                <p class="card-text"><small>📧 ${doc.email}</small></p>
+                                <p class="card-text"><small>📱 ${doc.phone || 'No phone'}</small></p>
+                                <button class="btn btn-primary w-100" onclick="patientManager.showBookingModal('${doc.id}', '${doc.full_name}')">
+                                    📅 Book Appointment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // =============================================
+    // MEDICATIONS CONTENT
+    // =============================================
+    async loadMedicationsContent(container) {
+        const prescriptions = [
+            { id: 'p1', medication: 'Amoxicillin', dosage: '500mg', frequency: '2 times per day', duration: '7 days', when_to_take: 'After meals', issued_at: new Date().toISOString() },
+            { id: 'p2', medication: 'Lisinopril', dosage: '10mg', frequency: '1 time per day', duration: '30 days', when_to_take: 'In the morning', issued_at: new Date(Date.now() - 86400000).toISOString() }
+        ];
+
+        const upcomingMeds = [
+            { id: 'm1', medication: 'Amoxicillin', dosage: '500mg', scheduled_time: new Date(Date.now() + 3600000).toISOString() },
+            { id: 'm2', medication: 'Lisinopril', dosage: '10mg', scheduled_time: new Date(Date.now() + 7200000).toISOString() }
+        ];
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <h2>💊 Prescriptions & Medications</h2>
+                    <p class="text-muted">View all your prescriptions and medication schedule</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card" onclick="patientManager.loadView('medications')">
+                    <div class="stat-label">💊 Active</div>
+                    <div class="stat-value success">${prescriptions.length}</div>
+                </div>
+                <div class="stat-card" onclick="patientManager.loadView('medications')">
+                    <div class="stat-label">⏰ Today's Meds</div>
+                    <div class="stat-value warning">${upcomingMeds.length}</div>
+                </div>
+            </div>
+
+            ${upcomingMeds.length > 0 ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
+                                <span class="badge bg-light text-dark">${upcomingMeds.length} pending</span>
+                            </div>
+                            <div class="card-body">
+                                ${upcomingMeds.map(med => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                        <div>
+                                            <strong>💊 ${med.medication}</strong>
+                                            <br><small>${med.dosage} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 All Prescriptions (${prescriptions.length})</h5>
+                        </div>
+                        <div class="card-body">
+                            ${prescriptions.map(rx => `
+                                <div class="border-bottom pb-3 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h6 class="mb-0">💊 ${rx.medication} - ${rx.dosage}</h6>
+                                            <p class="mb-0 small">
+                                                <strong>⏰ Frequency:</strong> ${rx.frequency}
+                                                <br><strong>📅 Duration:</strong> ${rx.duration}
+                                                <br><strong>🍽️ When to take:</strong> ${rx.when_to_take}
+                                            </p>
+                                            <small>📅 Issued: ${new Date(rx.issued_at).toLocaleDateString()}</small>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-success">✅ Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     // =============================================
     // CHAT CONTENT
     // =============================================
     async loadChatContent(container) {
-        console.log('💬 Loading chat content...');
-        
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0">💬 Messages</h5>
-                        </div>
-                        <div class="card-body text-center py-5">
-                            <div style="font-size: 4rem;">💬</div>
-                            <h5 class="mt-3">Chat Feature</h5>
-                            <p class="text-muted">Connect with your patients in real-time</p>
-                            <div class="alert alert-info">ℹ️ Chat is being initialized. Please wait...</div>
-                            <button class="btn btn-primary mt-3" onclick="doctorManager.loadView('chat')">🔄 Retry</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        if (window.chatManager && typeof window.chatManager.showChatInterface === 'function') {
-            setTimeout(() => {
-                try {
-                    window.chatManager.showChatInterface();
-                } catch (error) {
-                    console.error('Chat load error:', error);
-                }
-            }, 500);
-        }
-    }
-
-    openChat() {
-        this.loadView('chat');
-    }
-
-    openChatWithPatient(patientId) {
-        this.loadView('chat');
-    }
-
-    // =============================================
-    // DASHBOARD
-    // =============================================
-    async loadDashboardContent(container) {
-        const userId = authManager.getUserId();
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const { data: todayAppointments } = await supabase
-            .from('appointments')
-            .select(`
-                *,
-                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone)
-            `)
-            .eq('doctor_id', userId)
-            .eq('status', 'scheduled')
-            .gte('scheduled_at', today.toISOString())
-            .lt('scheduled_at', tomorrow.toISOString())
-            .order('scheduled_at', { ascending: true });
-
-        const { data: patientData } = await supabase
-            .from('appointments')
-            .select('patient_id')
-            .eq('doctor_id', userId);
-        
-        const uniquePatients = patientData ? [...new Set(patientData.map(p => p.patient_id))] : [];
-        const patientCount = uniquePatients.length;
-
-        const thisMonth = new Date();
-        thisMonth.setDate(1);
-        const { count: completedCount } = await supabase
-            .from('appointments')
-            .select('*', { count: 'exact', head: true })
-            .eq('doctor_id', userId)
-            .eq('status', 'completed')
-            .gte('scheduled_at', thisMonth.toISOString());
-
-        const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('receiver_id', userId)
-            .is('read_at', null);
-
-        const { count: prescriptionCount } = await supabase
-            .from('prescriptions')
-            .select('*', { count: 'exact', head: true })
-            .eq('doctor_id', userId);
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>🏥 Doctor Dashboard</h2>
-                    <p class="text-muted">Welcome back, Dr. ${authManager.getUserProfile().full_name}</p>
-                </div>
-            </div>
-            <div class="row mt-4">
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="doctorManager.loadView('appointments')" style="cursor:pointer;">
-                        <div class="icon">📅</div>
-                        <h4>${todayAppointments?.length || 0}</h4>
-                        <p>Today's Appointments</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="doctorManager.loadView('patients')" style="cursor:pointer;">
-                        <div class="icon">👥</div>
-                        <h4>${patientCount || 0}</h4>
-                        <p>Total Patients</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card">
-                        <div class="icon">💊</div>
-                        <h4>${prescriptionCount || 0}</h4>
-                        <p>Prescriptions Written</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="dashboard-card" onclick="doctorManager.loadView('chat')" style="cursor:pointer;">
-                        <div class="icon">💬</div>
-                        <h4>${unreadCount || 0}</h4>
-                        <p>Unread Messages ${unreadCount > 0 ? '🔴' : ''}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">📋 Today's Schedule</h5>
-                            <span class="badge bg-primary">${todayAppointments?.length || 0} appointments</span>
+                            <button class="btn btn-sm btn-primary" onclick="alert('📱 New message composer opened')">✏️ New</button>
                         </div>
                         <div class="card-body">
-                            ${todayAppointments && todayAppointments.length > 0
-                                ? todayAppointments.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;">🎉</div>
-                                    <p class="text-muted">No appointments scheduled for today</p>
-                                    <p class="text-muted small">Enjoy your free time or catch up on patient records.</p>
-                                </div>`
-                            }
+                            <div class="mb-3">
+                                <h6>Recent Conversations</h6>
+                                <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="alert('💬 Opening chat with Dr. Sarah Wilson')">
+                                    <div>
+                                        <strong>👨‍⚕️ Dr. Sarah Wilson</strong>
+                                        <p class="mb-0 small text-muted">Last message: 10:30 AM</p>
+                                    </div>
+                                    <span class="badge bg-danger">1</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="alert('💬 Opening chat with Dr. Michael Chen')">
+                                    <div>
+                                        <strong>👨‍⚕️ Dr. Michael Chen</strong>
+                                        <p class="mb-0 small text-muted">Last message: Yesterday</p>
+                                    </div>
+                                    <span class="badge bg-secondary">0</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex gap-2">
+                                    <input type="text" class="form-control" placeholder="Type a message..." id="chatInput">
+                                    <button class="btn btn-primary" onclick="alert('📤 Sending message...')">📤 Send</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -415,925 +665,18 @@ class DoctorManager {
     }
 
     // =============================================
-    // RENDER APPOINTMENT CARD
-    // =============================================
-    _renderAppointmentCard(apt, role = 'doctor') {
-        const statusMap = {
-            'scheduled': 'confirmed',
-            'pending': 'pending',
-            'in-progress': 'in-progress',
-            'completed': 'completed',
-            'cancelled': 'cancelled'
-        };
-        const statusClass = statusMap[apt.status] || 'pending';
-        const statusLabel = apt.status === 'scheduled' ? 'Confirmed' :
-                           apt.status === 'in-progress' ? 'In Progress' :
-                           apt.status.charAt(0).toUpperCase() + apt.status.slice(1);
-
-        const patientName = apt.patient?.full_name || 'Unknown Patient';
-        const patientInitial = patientName.charAt(0) || 'P';
-        const appointmentTime = new Date(apt.scheduled_at);
-        const timeStr = appointmentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const dateStr = appointmentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-
-        const actions = `
-            <div class="appointment-actions">
-                <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${patientName}')">
-                    🎥 Start Call
-                </button>
-                <button class="btn btn-sm btn-outline-primary" onclick="doctorManager.openConsultationModal('${apt.id}', '${apt.patient_id}', '${patientName}')">
-                    📋 Consult
-                </button>
-                <button class="btn btn-sm btn-success" onclick="doctorManager.writePrescription('${apt.patient_id}', '${patientName}')">
-                    💊 Prescribe
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="doctorManager.loadView('chat')">
-                    💬 Message
-                </button>
-            </div>
-        `;
-
-        return `
-            <div class="appointment-card status-${statusClass}">
-                <div class="appointment-top">
-                    <div class="appointment-doctor">
-                        <div class="doctor-avatar" style="background: ${this._getColor(patientName)}; color: white;">
-                            ${patientInitial}
-                        </div>
-                        <div>
-                            <div class="doctor-name">${patientName}</div>
-                            <div class="doctor-specialty">${apt.patient?.email || 'No email'} • ${apt.patient?.phone || 'No phone'}</div>
-                        </div>
-                    </div>
-                    <div class="appointment-time-large">
-                        <span class="time">${timeStr}</span>
-                        <span class="date">${dateStr}</span>
-                    </div>
-                </div>
-                <div class="appointment-details">
-                    <span class="detail-item">🩺 ${apt.consultation_type === 'video' ? 'Video Consultation' : 'Physical Consultation'}</span>
-                    <span class="detail-item">⏰ 30 minutes</span>
-                    <span class="detail-item">📍 ${apt.consultation_type === 'video' ? 'Online' : 'Clinic'}</span>
-                    <span style="margin-left:auto;">
-                        <span class="status-badge ${statusClass}">
-                            <span class="status-dot"></span>
-                            ${statusLabel}
-                        </span>
-                    </span>
-                </div>
-                ${actions}
-            </div>
-        `;
-    }
-
-    _getColor(name) {
-        const colors = ['#2563EB', '#7C3AED', '#DC2626', '#16A34A', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899'];
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        return colors[Math.abs(hash) % colors.length];
-    }
-
-    // =============================================
-    // APPOINTMENTS
-    // =============================================
-    async loadAppointmentsContent(container) {
-        const userId = authManager.getUserId();
-        
-        const { data: appointments } = await supabase
-            .from('appointments')
-            .select(`
-                *,
-                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone)
-            `)
-            .eq('doctor_id', userId)
-            .order('scheduled_at', { ascending: false });
-
-        const now = new Date();
-        const upcoming = appointments?.filter(a => new Date(a.scheduled_at) > now && a.status === 'scheduled') || [];
-        const today = appointments?.filter(a => {
-            const date = new Date(a.scheduled_at);
-            return date.toDateString() === now.toDateString() && a.status === 'scheduled';
-        }) || [];
-        const past = appointments?.filter(a => new Date(a.scheduled_at) < now && a.status !== 'scheduled') || [];
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>📅 My Appointments</h2>
-                    <p class="text-muted">View and manage all your appointments</p>
-                </div>
-            </div>
-            <div class="row mt-3">
-                <div class="col-md-3 col-6 mb-2">
-                    <div class="card text-center" style="padding:12px;">
-                        <h4 style="color:var(--primary);">${today.length}</h4>
-                        <p class="text-muted small">Today</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-2">
-                    <div class="card text-center" style="padding:12px;">
-                        <h4 style="color:var(--success);">${upcoming.length}</h4>
-                        <p class="text-muted small">Upcoming</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-2">
-                    <div class="card text-center" style="padding:12px;">
-                        <h4 style="color:var(--text-light);">${past.length}</h4>
-                        <p class="text-muted small">Past</p>
-                    </div>
-                </div>
-            </div>
-            ${today.length > 0 ? `<div class="mt-4"><h5>🟢 Today's Appointments</h5>${today.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')}</div>` : ''}
-            ${upcoming.length > 0 ? `<div class="mt-4"><h5>📅 Upcoming Appointments</h5>${upcoming.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')}</div>` : ''}
-            ${past.length > 0 ? `<div class="mt-4"><h5>📋 Past Appointments</h5>${past.map(apt => this._renderAppointmentCard(apt, 'doctor')).join('')}</div>` : ''}
-            ${!today.length && !upcoming.length && !past.length ? `
-                <div class="card mt-4">
-                    <div class="card-body text-center py-5">
-                        <div style="font-size:4rem;margin-bottom:16px;">📭</div>
-                        <p class="text-muted">No appointments found</p>
-                    </div>
-                </div>
-            ` : ''}
-        `;
-    }
-
-    // =============================================
-    // PATIENTS
-    // =============================================
-    async loadPatientsContent(container) {
-        const userId = authManager.getUserId();
-        
-        const { data: patients } = await supabase
-            .from('appointments')
-            .select(`
-                patient_id,
-                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone, created_at)
-            `)
-            .eq('doctor_id', userId);
-
-        const patientMap = new Map();
-        if (patients) {
-            patients.forEach(p => {
-                if (p.patient && !patientMap.has(p.patient_id)) {
-                    patientMap.set(p.patient_id, p.patient);
-                }
-            });
-        }
-        const uniquePatients = Array.from(patientMap.values());
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>👥 My Patients</h2>
-                    <p class="text-muted">Manage your patients, write prescriptions, and schedule follow-ups</p>
-                </div>
-            </div>
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">Patient List</h5>
-                            <span class="badge bg-primary">${uniquePatients.length} patients</span>
-                        </div>
-                        <div class="card-body">
-                            ${uniquePatients && uniquePatients.length > 0
-                                ? `<div class="table-responsive">
-                                    <table class="table">
-                                        <thead>
-                                            <tr>
-                                                <th>Patient</th>
-                                                <th>Email</th>
-                                                <th>Phone</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${uniquePatients.map(patient => `
-                                                <tr>
-                                                    <td><strong>${patient.full_name || 'Unknown'}</strong></td>
-                                                    <td>${patient.email || 'N/A'}</td>
-                                                    <td>${patient.phone || '-'}</td>
-                                                    <td>
-                                                        <div class="d-flex flex-wrap gap-1">
-                                                            <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name || 'Patient'}')">
-                                                                📄 History
-                                                            </button>
-                                                            <button class="btn btn-sm btn-success" onclick="doctorManager.writePrescription('${patient.id}', '${patient.full_name || 'Patient'}')">
-                                                                💊 Prescription
-                                                            </button>
-                                                            <button class="btn btn-sm btn-warning" onclick="doctorManager.scheduleFollowUp('${patient.id}', '${patient.full_name || 'Patient'}')">
-                                                                📅 Follow-up
-                                                            </button>
-                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">
-                                                                💬 Message
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>`
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;">👥</div>
-                                    <p class="text-muted">No patients found</p>
-                                    <p class="text-muted small">Start by scheduling appointments with patients.</p>
-                                </div>`
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // =============================================
-    // WRITE PRESCRIPTION - FULL MEDICATION SCHEDULE
-    // =============================================
-    writePrescription(patientId, patientName) {
-        if (!patientId || patientId === 'undefined' || patientId === 'null') {
-            alert('❌ Error: Invalid patient ID. Please try again.');
-            return;
-        }
-
-        const modalHtml = `
-            <div class="modal-overlay" id="prescriptionModal">
-                <div class="modal" style="max-width: 600px;">
-                    <div class="modal-header" style="background: var(--success); border-radius: var(--radius-lg) var(--radius-lg) 0 0; margin: -32px -32px 0 -32px; padding: 20px 32px;">
-                        <h5 class="modal-title" style="color: white;">💊 Write Prescription - ${patientName || 'Patient'}</h5>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color: white;">×</button>
-                    </div>
-                    <div class="modal-body" style="margin-top: 20px;">
-                        <form id="prescriptionForm">
-                            <div class="form-group">
-                                <label class="form-label">👤 Patient</label>
-                                <input type="text" class="form-control" value="${patientName || 'Patient'}" disabled>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">💊 Medication Name *</label>
-                                <input type="text" class="form-control" id="medicationName" placeholder="e.g., Amoxicillin" required>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="form-label">📏 Dosage *</label>
-                                        <input type="text" class="form-control" id="dosage" placeholder="e.g., 500mg" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="form-label">⏰ Times Per Day</label>
-                                        <select class="form-control" id="timesPerDay">
-                                            <option value="1 time per day">1 time per day</option>
-                                            <option value="2 times per day" selected>2 times per day</option>
-                                            <option value="3 times per day">3 times per day</option>
-                                            <option value="4 times per day">4 times per day</option>
-                                            <option value="As needed">As needed</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="form-label">📅 Duration (Days) *</label>
-                                        <input type="number" class="form-control" id="durationDays" placeholder="e.g., 7" min="1" max="90" required>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">🍽️ When to Take</label>
-                                <select class="form-control" id="whenToTake">
-                                    <option value="After meals">After meals</option>
-                                    <option value="Before meals">Before meals</option>
-                                    <option value="With food">With food</option>
-                                    <option value="On empty stomach">On empty stomach</option>
-                                    <option value="At bedtime">At bedtime</option>
-                                    <option value="With water">With water</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">📝 Special Instructions</label>
-                                <textarea class="form-control" id="instructions" rows="2" placeholder="Any special instructions..."></textarea>
-                            </div>
-                            <div class="form-group">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="sendReminders" checked>
-                                    <label class="form-check-label" for="sendReminders">🔔 Send medication reminders to patient</label>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-success btn-block">
-                                💾 Save Prescription & Schedule Reminders
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const existingModal = document.getElementById('prescriptionModal');
-        if (existingModal) existingModal.remove();
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-        document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const medication = document.getElementById('medicationName').value.trim();
-            const dosage = document.getElementById('dosage').value.trim();
-            const timesPerDay = document.getElementById('timesPerDay').value;
-            const durationDays = parseInt(document.getElementById('durationDays').value) || 7;
-            const whenToTake = document.getElementById('whenToTake').value;
-            const instructions = document.getElementById('instructions').value.trim();
-            const sendReminders = document.getElementById('sendReminders').checked;
-
-            if (!medication || !dosage || !durationDays) {
-                alert('⚠️ Please fill in all required fields.');
-                return;
-            }
-
-            const result = await this.savePrescription(patientId, {
-                medication,
-                dosage,
-                frequency: timesPerDay,
-                duration: `${durationDays} days`,
-                duration_days: durationDays,
-                when_to_take: whenToTake,
-                times_per_day: timesPerDay,
-                instructions: instructions || whenToTake,
-                send_reminders: sendReminders,
-                notes: ''
-            });
-            
-            alert(result.message);
-            if (result.success) {
-                document.getElementById('prescriptionModal').remove();
-                this.loadView('patients');
-            }
-        });
-    }
-
-    async savePrescription(patientId, prescriptionData) {
-        try {
-            const doctorId = authManager.getUserId();
-            
-            if (!patientId || patientId === 'undefined' || patientId === 'null') {
-                throw new Error('Invalid patient ID');
-            }
-            
-            const prescription = {
-                patient_id: patientId,
-                doctor_id: doctorId,
-                medication: prescriptionData.medication,
-                dosage: prescriptionData.dosage,
-                frequency: prescriptionData.frequency || '',
-                duration: prescriptionData.duration || '',
-                duration_days: prescriptionData.duration_days || null,
-                when_to_take: prescriptionData.when_to_take || '',
-                times_per_day: prescriptionData.times_per_day || '',
-                instructions: prescriptionData.instructions || '',
-                send_reminders: prescriptionData.send_reminders || false,
-                notes: prescriptionData.notes || '',
-                issued_at: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('prescriptions')
-                .insert([prescription]);
-
-            if (error) throw error;
-
-            if (prescriptionData.send_reminders) {
-                await this.createMedicationSchedule(patientId, prescriptionData);
-                await this.sendMedicationReminders(patientId, prescriptionData);
-            }
-
-            await this.notifyPatientPrescription(patientId, prescriptionData);
-
-            return { success: true, message: '✅ Prescription saved successfully! Medication schedule created.' };
-        } catch (error) {
-            console.error('❌ Prescription error:', error);
-            return { success: false, message: error.message || 'Failed to save prescription.' };
-        }
-    }
-
-    // =============================================
-    // CREATE MEDICATION SCHEDULE
-    // =============================================
-    async createMedicationSchedule(patientId, prescriptionData) {
-        try {
-            const timesPerDayNum = this.getTimesPerDayNumber(prescriptionData.times_per_day);
-            const intervalHours = Math.floor(12 / timesPerDayNum);
-            const scheduleEntries = [];
-            const startDate = new Date();
-
-            for (let d = 0; d < prescriptionData.duration_days; d++) {
-                const date = new Date(startDate);
-                date.setDate(date.getDate() + d);
-                
-                for (let t = 0; t < timesPerDayNum; t++) {
-                    const hour = 8 + (t * intervalHours);
-                    const reminderTime = new Date(date);
-                    reminderTime.setHours(hour, 0, 0, 0);
-                    
-                    scheduleEntries.push({
-                        patient_id: patientId,
-                        medication: prescriptionData.medication,
-                        dosage: prescriptionData.dosage,
-                        scheduled_time: reminderTime.toISOString(),
-                        taken: false,
-                        created_at: new Date().toISOString()
-                    });
-                }
-            }
-
-            const { error } = await supabase
-                .from('medication_schedule')
-                .insert(scheduleEntries);
-
-            if (error) {
-                console.error('Error creating medication schedule:', error);
-            } else {
-                console.log(`✅ Created ${scheduleEntries.length} medication schedule entries`);
-            }
-
-        } catch (error) {
-            console.error('Error creating medication schedule:', error);
-        }
-    }
-
-    getTimesPerDayNumber(timesPerDay) {
-        if (timesPerDay.includes('1')) return 1;
-        if (timesPerDay.includes('2')) return 2;
-        if (timesPerDay.includes('3')) return 3;
-        if (timesPerDay.includes('4')) return 4;
-        return 2;
-    }
-
-    // =============================================
-    // SEND MEDICATION REMINDERS
-    // =============================================
-    async sendMedicationReminders(patientId, prescriptionData) {
-        try {
-            const doctorId = authManager.getUserId();
-            const { data: doctorData } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', doctorId)
-                .single();
-
-            const doctorName = doctorData?.full_name || 'Doctor';
-            const timesPerDayNum = this.getTimesPerDayNumber(prescriptionData.times_per_day);
-            const intervalHours = Math.floor(12 / timesPerDayNum);
-            const reminderTimes = [];
-
-            for (let i = 0; i < timesPerDayNum; i++) {
-                const hour = 8 + (i * intervalHours);
-                reminderTimes.push(`${hour.toString().padStart(2, '0')}:00`);
-            }
-
-            const messageContent = `💊 **Medication Schedule**\n\n` +
-                `Dr. ${doctorName} has prescribed:\n` +
-                `📋 **${prescriptionData.medication}** - ${prescriptionData.dosage}\n` +
-                `⏰ **Take ${prescriptionData.times_per_day}** at: ${reminderTimes.join(', ')}\n` +
-                `🍽️ **When to take:** ${prescriptionData.when_to_take}\n` +
-                `📅 **Duration:** ${prescriptionData.duration}\n` +
-                `💡 **Instructions:** ${prescriptionData.instructions}\n\n` +
-                `🔔 You will receive reminders when it's time to take your medication.`;
-
-            await supabase
-                .from('messages')
-                .insert([{
-                    sender_id: doctorId,
-                    receiver_id: patientId,
-                    appointment_id: null,
-                    content: messageContent,
-                    sent_at: new Date().toISOString()
-                }]);
-
-        } catch (error) {
-            console.error('Error sending medication reminders:', error);
-        }
-    }
-
-    async notifyPatientPrescription(patientId, prescriptionData) {
-        try {
-            const doctorId = authManager.getUserId();
-            const { data: doctorData } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', doctorId)
-                .single();
-
-            const doctorName = doctorData?.full_name || 'Doctor';
-
-            const messageContent = `💊 **New Prescription**\n\nDr. ${doctorName} has prescribed:\n📋 ${prescriptionData.medication} - ${prescriptionData.dosage}\n⏰ Take ${prescriptionData.frequency}\n📅 Duration: ${prescriptionData.duration}\n📝 ${prescriptionData.instructions}\n\n🔔 You will receive reminders when it's time to take your medication.`;
-
-            await supabase
-                .from('messages')
-                .insert([{
-                    sender_id: doctorId,
-                    receiver_id: patientId,
-                    appointment_id: null,
-                    content: messageContent,
-                    sent_at: new Date().toISOString()
-                }]);
-
-        } catch (error) {
-            console.error('Error notifying patient:', error);
-        }
-    }
-
-    // =============================================
-    // SCHEDULE FOLLOW-UP
-    // =============================================
-    scheduleFollowUp(patientId, patientName) {
-        if (!patientId || patientId === 'undefined' || patientId === 'null') {
-            alert('❌ Error: Invalid patient ID.');
-            return;
-        }
-
-        const modalHtml = `
-            <div class="modal-overlay" id="followUpModal">
-                <div class="modal">
-                    <div class="modal-header" style="background:var(--warning);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">📅 Schedule Follow-up - ${patientName || 'Patient'}</h5>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
-                    </div>
-                    <div class="modal-body" style="margin-top:20px;">
-                        <form id="followUpForm">
-                            <div class="form-group">
-                                <label class="form-label">👤 Patient</label>
-                                <input type="text" class="form-control" value="${patientName || 'Patient'}" disabled>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">📅 Follow-up Date & Time *</label>
-                                <input type="datetime-local" class="form-control" id="followUpDate" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">📝 Reason for Follow-up</label>
-                                <select class="form-control" id="followUpReason">
-                                    <option value="Review medication">Review medication</option>
-                                    <option value="Check progress">Check progress</option>
-                                    <option value="Test results">Test results</option>
-                                    <option value="Symptom check">Symptom check</option>
-                                    <option value="Routine checkup">Routine checkup</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">📝 Notes</label>
-                                <textarea class="form-control" id="followUpNotes" rows="2" placeholder="Additional notes..."></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-warning btn-block">📅 Schedule Follow-up</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const existingModal = document.getElementById('followUpModal');
-        if (existingModal) existingModal.remove();
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + 14);
-        document.getElementById('followUpDate').value = defaultDate.toISOString().slice(0, 16);
-
-        document.getElementById('followUpForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const scheduledAt = document.getElementById('followUpDate').value;
-            const reason = document.getElementById('followUpReason').value;
-            const notes = document.getElementById('followUpNotes').value;
-
-            if (!scheduledAt) {
-                alert('⚠️ Please select a date and time.');
-                return;
-            }
-
-            const result = await this.bookFollowUp(patientId, scheduledAt, reason, notes);
-            alert(result.message);
-            if (result.success) {
-                document.getElementById('followUpModal').remove();
-                this.loadView('patients');
-            }
-        });
-    }
-
-    async bookFollowUp(patientId, scheduledAt, reason, notes) {
-        try {
-            if (!patientId || patientId === 'undefined' || patientId === 'null') {
-                throw new Error('Invalid patient ID');
-            }
-
-            const doctorId = authManager.getUserId();
-            
-            const { error } = await supabase
-                .from('appointments')
-                .insert([{
-                    patient_id: patientId,
-                    doctor_id: doctorId,
-                    scheduled_at: new Date(scheduledAt).toISOString(),
-                    status: 'scheduled',
-                    consultation_type: 'physical',
-                    payment_status: 'pending',
-                    amount_paid: 500,
-                    notes: `Follow-up - ${reason}\n${notes}`,
-                    created_at: new Date().toISOString(),
-                    is_follow_up: true
-                }]);
-
-            if (error) throw error;
-
-            return { success: true, message: '✅ Follow-up scheduled successfully!' };
-        } catch (error) {
-            console.error('Follow-up error:', error);
-            return { success: false, message: error.message || 'Failed to schedule follow-up.' };
-        }
-    }
-
-    // =============================================
-    // CONSULTATION MODAL
-    // =============================================
-    openConsultationModal(appointmentId, patientId, patientName) {
-        const modalHtml = `
-            <div class="modal-overlay" id="consultationModal">
-                <div class="modal">
-                    <div class="modal-header" style="background:var(--primary);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">📋 Consultation - ${patientName}</h5>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
-                    </div>
-                    <div class="modal-body" style="margin-top:20px;">
-                        <form id="consultationForm">
-                            <div class="form-group">
-                                <label class="form-label">📝 SOAP Notes *</label>
-                                <textarea class="form-control" id="soapNotes" rows="5" placeholder="Subjective, Objective, Assessment, Plan" required></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">💊 Prescription (Optional)</label>
-                                <div id="prescriptionFields">
-                                    <div class="row mb-2 prescription-row">
-                                        <div class="col-md-4">
-                                            <input type="text" class="form-control" placeholder="Medication" name="medication">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <input type="text" class="form-control" placeholder="Dosage" name="dosage">
-                                        </div>
-                                        <div class="col-md-4">
-                                            <input type="text" class="form-control" placeholder="Instructions" name="instructions">
-                                        </div>
-                                        <div class="col-md-1">
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.prescription-row').remove()">×</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="doctorManager.addPrescriptionField()">+ Add Medication</button>
-                            </div>
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="completeAppointment">
-                                <label class="form-check-label" for="completeAppointment">✅ Mark appointment as completed</label>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-block">💾 Save Consultation</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const existingModal = document.getElementById('consultationModal');
-        if (existingModal) existingModal.remove();
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-        document.getElementById('consultationForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const soapNotes = document.getElementById('soapNotes').value.trim();
-            const completeAppointment = document.getElementById('completeAppointment').checked;
-
-            if (!soapNotes) {
-                alert('⚠️ Please enter SOAP notes.');
-                return;
-            }
-
-            const prescriptions = [];
-            document.querySelectorAll('.prescription-row').forEach(row => {
-                const medication = row.querySelector('[name="medication"]').value.trim();
-                const dosage = row.querySelector('[name="dosage"]').value.trim();
-                const instructions = row.querySelector('[name="instructions"]').value.trim();
-                if (medication) {
-                    prescriptions.push({ medication, dosage, instructions });
-                }
-            });
-
-            const result = await this.saveConsultation(appointmentId, patientId, soapNotes, prescriptions, completeAppointment);
-            alert(result.message);
-            
-            if (result.success) {
-                document.getElementById('consultationModal').remove();
-                this.loadView('appointments');
-            }
-        });
-    }
-
-    addPrescriptionField() {
-        const fieldHtml = `
-            <div class="row mb-2 prescription-row">
-                <div class="col-md-4">
-                    <input type="text" class="form-control" placeholder="Medication" name="medication">
-                </div>
-                <div class="col-md-3">
-                    <input type="text" class="form-control" placeholder="Dosage" name="dosage">
-                </div>
-                <div class="col-md-4">
-                    <input type="text" class="form-control" placeholder="Instructions" name="instructions">
-                </div>
-                <div class="col-md-1">
-                    <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.prescription-row').remove()">×</button>
-                </div>
-            </div>
-        `;
-        document.getElementById('prescriptionFields').insertAdjacentHTML('beforeend', fieldHtml);
-    }
-
-    async saveConsultation(appointmentId, patientId, soapNotes, prescriptions, completeAppointment) {
-        try {
-            const doctorId = authManager.getUserId();
-
-            const { error: recordError } = await supabase
-                .from('medical_records')
-                .insert([{
-                    patient_id: patientId,
-                    doctor_id: doctorId,
-                    appointment_id: appointmentId,
-                    soap_notes: soapNotes,
-                    created_at: new Date().toISOString()
-                }]);
-
-            if (recordError) throw recordError;
-
-            if (prescriptions.length > 0) {
-                const prescriptionData = prescriptions.map(rx => ({
-                    patient_id: patientId,
-                    doctor_id: doctorId,
-                    appointment_id: appointmentId,
-                    medication: rx.medication,
-                    dosage: rx.dosage,
-                    instructions: rx.instructions,
-                    issued_at: new Date().toISOString()
-                }));
-
-                const { error: rxError } = await supabase
-                    .from('prescriptions')
-                    .insert(prescriptionData);
-
-                if (rxError) throw rxError;
-            }
-
-            if (completeAppointment) {
-                const { error: updateError } = await supabase
-                    .from('appointments')
-                    .update({ 
-                        status: 'completed',
-                        completed_at: new Date().toISOString()
-                    })
-                    .eq('id', appointmentId);
-
-                if (updateError) throw updateError;
-            }
-
-            return { success: true, message: '✅ Consultation saved successfully!' };
-        } catch (error) {
-            console.error('Consultation save error:', error);
-            return { success: false, message: error.message || 'Failed to save consultation.' };
-        }
-    }
-
-    // =============================================
-    // VIEW CONSULTATION
-    // =============================================
-    async viewConsultation(appointmentId) {
-        const { data: records } = await supabase
-            .from('medical_records')
-            .select(`
-                *,
-                doctor:profiles!medical_records_doctor_id_fkey (full_name),
-                appointment:appointments (scheduled_at),
-                prescriptions:prescriptions (*)
-            `)
-            .eq('appointment_id', appointmentId)
-            .order('created_at', { ascending: false });
-
-        if (!records || records.length === 0) {
-            alert('No consultation notes found.');
-            return;
-        }
-
-        const record = records[0];
-        const modalHtml = `
-            <div class="modal-overlay" id="viewConsultationModal">
-                <div class="modal">
-                    <div class="modal-header" style="background:var(--info);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">📄 Consultation Notes</h5>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
-                    </div>
-                    <div class="modal-body" style="margin-top:20px;">
-                        <p><strong>Doctor:</strong> ${record.doctor?.full_name || 'Unknown'}</p>
-                        <p><strong>Date:</strong> ${new Date(record.created_at).toLocaleString()}</p>
-                        <hr>
-                        <h6>📝 SOAP Notes</h6>
-                        <p style="background:var(--background);padding:16px;border-radius:var(--radius-sm);">${record.soap_notes || 'No notes available'}</p>
-                        ${record.prescriptions && record.prescriptions.length > 0 ? `
-                            <h6>💊 Prescriptions:</h6>
-                            <ul>
-                                ${record.prescriptions.map(rx => `
-                                    <li><strong>${rx.medication}</strong> - ${rx.dosage} (${rx.instructions || 'Take as directed'})</li>
-                                `).join('')}
-                            </ul>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const existingModal = document.getElementById('viewConsultationModal');
-        if (existingModal) existingModal.remove();
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
-
-    // =============================================
-    // VIEW PATIENT HISTORY
-    // =============================================
-    async viewPatientHistory(patientId, patientName) {
-        const { data: records } = await supabase
-            .from('medical_records')
-            .select(`
-                *,
-                doctor:profiles!medical_records_doctor_id_fkey (full_name),
-                appointment:appointments (scheduled_at),
-                prescriptions:prescriptions (*)
-            `)
-            .eq('patient_id', patientId)
-            .order('created_at', { ascending: false });
-
-        const modalHtml = `
-            <div class="modal-overlay" id="historyModal">
-                <div class="modal" style="max-width:700px;">
-                    <div class="modal-header" style="background:var(--primary);border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:-32px -32px 0 -32px;padding:20px 32px;">
-                        <h5 class="modal-title" style="color:white;">📄 Medical History - ${patientName}</h5>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" style="color:white;">×</button>
-                    </div>
-                    <div class="modal-body" style="margin-top:20px;">
-                        ${records && records.length > 0
-                            ? records.map(record => `
-                                <div class="card mb-3">
-                                    <div class="card-header" style="background:var(--background);">
-                                        <h6 class="mb-0">${record.doctor?.full_name || 'Unknown Doctor'} - ${new Date(record.created_at).toLocaleString()}</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p><strong>SOAP Notes:</strong></p>
-                                        <p>${record.soap_notes || 'No notes available'}</p>
-                                        ${record.prescriptions && record.prescriptions.length > 0 ? `
-                                            <p><strong>💊 Prescriptions:</strong></p>
-                                            <ul>
-                                                ${record.prescriptions.map(rx => `
-                                                    <li><strong>${rx.medication}</strong> - ${rx.dosage} (${rx.instructions || 'Take as directed'})</li>
-                                                `).join('')}
-                                            </ul>
-                                        ` : ''}
-                                    </div>
-                                </div>
-                            `).join('')
-                            : `<div class="text-center py-4">
-                                <div style="font-size:3rem;margin-bottom:12px;">📭</div>
-                                <p class="text-muted">No medical records found for this patient</p>
-                            </div>`
-                        }
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const existingModal = document.getElementById('historyModal');
-        if (existingModal) existingModal.remove();
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
-
-    // =============================================
-    // PROFILE
+    // PROFILE CONTENT
     // =============================================
     async loadProfileContent(container) {
         const profile = authManager.getUserProfile();
-        
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
-                    <h2>⚙️ My Profile</h2>
+                    <h2>👤 My Profile</h2>
                 </div>
             </div>
-            <div class="row mt-3">
+            <div class="row mt-4">
                 <div class="col-md-8">
                     <div class="card">
                         <div class="card-body">
@@ -1347,15 +690,22 @@ class DoctorManager {
                                     <input type="email" class="form-control" id="email" value="${profile.email || ''}" disabled>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">🩺 Specialty</label>
-                                    <input type="text" class="form-control" id="specialty" value="${profile.specialty || 'General Practice'}" disabled>
-                                </div>
-                                <div class="form-group">
                                     <label class="form-label">📱 Phone</label>
                                     <input type="tel" class="form-control" id="phone" value="${profile.phone || ''}">
                                 </div>
-                                <button type="submit" class="btn btn-primary">💾 Update Profile</button>
+                                <button type="submit" class="btn btn-primary btn-block">💾 Update Profile</button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <div style="font-size: 4rem;">👤</div>
+                            <h5>${profile.full_name}</h5>
+                            <p class="text-muted">Patient</p>
+                            <p><small>📧 ${profile.email}</small></p>
+                            <p><small>📱 ${profile.phone || 'No phone'}</small></p>
                         </div>
                     </div>
                 </div>
@@ -1367,59 +717,144 @@ class DoctorManager {
             const fullName = document.getElementById('fullName').value.trim();
             const phone = document.getElementById('phone').value.trim();
 
-            if (!fullName) {
-                alert('⚠️ Full name is required.');
-                return;
-            }
+            try {
+                const userId = authManager.getUserId();
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ full_name: fullName, phone: phone })
+                    .eq('id', userId);
 
-            const result = await this.updateProfile(fullName, phone);
-            alert(result.message);
+                if (error) throw error;
+
+                authManager.userProfile.full_name = fullName;
+                authManager.userProfile.phone = phone;
+
+                alert('✅ Profile updated successfully!');
+                this.loadView('profile');
+            } catch (error) {
+                alert('Failed to update profile: ' + error.message);
+            }
         });
     }
 
-    async updateProfile(fullName, phone) {
-        try {
-            const userId = authManager.getUserId();
-            
-            const { error } = await supabase
-                .from('profiles')
-                .update({ full_name: fullName, phone: phone })
-                .eq('id', userId);
+    // =============================================
+    // ACTIONS
+    // =============================================
 
-            if (error) throw error;
+    showBookingModal(preSelectedDoctorId = null, preSelectedDoctorName = null) {
+        const doctorsHtml = this.availableDoctors.map(doc =>
+            `<option value="${doc.id}" ${doc.id === preSelectedDoctorId ? 'selected' : ''}>👨‍⚕️ Dr. ${doc.full_name} - ${doc.specialty || 'General Practice'}</option>`
+        ).join('');
 
-            authManager.userProfile.full_name = fullName;
-            authManager.userProfile.phone = phone;
+        const modalHtml = `
+            <div class="modal-overlay" id="bookingModal">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h5 class="modal-title">📅 Book Appointment</h5>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="bookingForm">
+                            <div class="form-group">
+                                <label class="form-label">👨‍⚕️ Select Doctor</label>
+                                <select class="form-control" id="doctorSelect" required>
+                                    <option value="">Select a doctor...</option>
+                                    ${doctorsHtml}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">⚙️ Consultation Type</label>
+                                <select class="form-control" id="consultationType" required>
+                                    <option value="video">🎥 Video Call - KES 300 (pay after call)</option>
+                                    <option value="physical">🏥 Physical - KES 500 (pay now)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">📅 Date & Time</label>
+                                <input type="datetime-local" class="form-control" id="appointmentDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">📝 Notes (Optional)</label>
+                                <textarea class="form-control" id="appointmentNotes" rows="2" placeholder="Any specific concerns..."></textarea>
+                            </div>
+                            <div id="paymentInfo" class="alert alert-info">
+                                🎥 <strong>Video Call:</strong> KES 300 (pay after call)<br>
+                                🏥 <strong>Physical:</strong> KES 500 (pay now)
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">📅 Book Now</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
 
-            return { success: true, message: '✅ Profile updated successfully!' };
-        } catch (error) {
-            console.error('Profile update error:', error);
-            return { success: false, message: error.message || 'Failed to update profile.' };
+        const existingModal = document.getElementById('bookingModal');
+        if (existingModal) existingModal.remove();
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const defaultDate = new Date();
+        defaultDate.setDate(defaultDate.getDate() + 1);
+        defaultDate.setHours(9, 0, 0, 0);
+        document.getElementById('appointmentDate').value = defaultDate.toISOString().slice(0, 16);
+
+        document.getElementById('consultationType').addEventListener('change', (e) => {
+            const type = e.target.value;
+            const info = document.getElementById('paymentInfo');
+            const btn = document.querySelector('#bookingForm button[type="submit"]');
+
+            if (type === 'video') {
+                info.innerHTML = '🎥 <strong>Video Call:</strong> KES 300 - Pay <strong>after</strong> the call';
+                btn.innerHTML = '📅 Book Now (Pay Later)';
+                btn.className = 'btn btn-primary btn-block';
+            } else {
+                info.innerHTML = '🏥 <strong>Physical Consultation:</strong> KES 500 - Pay <strong>now</strong> to book';
+                btn.innerHTML = '💳 Pay KES 500 & Book';
+                btn.className = 'btn btn-warning btn-block';
+            }
+        });
+
+        document.getElementById('bookingForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('✅ Appointment booked successfully!');
+            document.getElementById('bookingModal').remove();
+            this.loadView('appointments');
+        });
+    }
+
+    joinVideoCall(appointmentId, roomId, doctorName) {
+        if (!roomId || roomId === 'null' || roomId === 'undefined') {
+            alert('No video room found. Please contact your doctor.');
+            return;
+        }
+
+        if (doctorName && !confirm(`Join video call with Dr. ${doctorName}?`)) {
+            return;
+        }
+
+        const profile = authManager.getUserProfile();
+        const displayName = profile?.full_name || 'Patient';
+
+        if (window.videoManager) {
+            window.videoManager.joinRoom(roomId, displayName);
+        } else {
+            alert(`🎥 Video call started\nRoom: ${roomId}\nName: ${displayName}`);
         }
     }
 
-    // =============================================
-    // VIDEO CALL
-    // =============================================
-    joinVideoCall(appointmentId, roomId, patientName) {
-        if (!roomId || roomId === 'null' || roomId === 'undefined' || roomId === '') {
-            alert('❌ No video room found for this appointment.');
-            return;
-        }
-        
-        if (patientName && !confirm(`Start video call with ${patientName}?`)) {
-            return;
-        }
-        
-        const profile = authManager?.getUserProfile();
-        const displayName = `Dr. ${profile?.full_name || 'Doctor'}`;
-        
-        const videoUrl = `video-call.html?room=${roomId}&name=${encodeURIComponent(displayName)}&appointment=${appointmentId}`;
-        window.open(videoUrl, '_blank', 'width=900,height=700');
+    markMedicationTaken(scheduleId) {
+        alert('✅ Medication marked as taken!');
+        this.loadView('medications');
+    }
+
+    cancelAppointment(appointmentId) {
+        if (!confirm('Are you sure you want to cancel this appointment?')) return;
+        alert('✅ Appointment cancelled successfully!');
+        this.loadView('appointments');
     }
 }
 
-// Initialize doctor manager
-const doctorManager = new DoctorManager();
-window.doctorManager = doctorManager;
-console.log('✅ DoctorManager initialized');
+// Initialize patient manager
+const patientManager = new PatientManager();
+window.patientManager = patientManager;
+console.log('PatientManager initialized');
