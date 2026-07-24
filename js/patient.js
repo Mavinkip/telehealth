@@ -1,5 +1,5 @@
 /*
- * File: patient.js - ALL BUTTONS WORKING WITH EMOJIS
+ * File: patient.js - ALL BUTTONS FIXED WITH CONTENT CONTAINER
  */
 
 class PatientManager {
@@ -40,45 +40,29 @@ class PatientManager {
                     <div class="collapse navbar-collapse" id="navbarNav">
                         <ul class="navbar-nav me-auto">
                             <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="dashboard">
-                                    📊 Dashboard
-                                </a>
+                                <a class="nav-link" href="#" data-view="dashboard">📊 Dashboard</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="appointments">
-                                    📅 Appointments
-                                </a>
+                                <a class="nav-link" href="#" data-view="appointments">📅 Appointments</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="medications">
-                                    💊 Medications
-                                </a>
+                                <a class="nav-link" href="#" data-view="medications">💊 Medications</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="chat">
-                                    💬 Messages
-                                </a>
+                                <a class="nav-link" href="#" data-view="chat">💬 Messages</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#" data-view="profile">
-                                    👤 Profile
-                                </a>
+                                <a class="nav-link" href="#" data-view="profile">👤 Profile</a>
                             </li>
                         </ul>
-                        <span class="navbar-text me-3">
-                            👋 ${profile.full_name}
-                        </span>
-                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">
-                            🚪 Logout
-                        </button>
+                        <span class="navbar-text me-3">👋 ${profile.full_name}</span>
+                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 Logout</button>
                     </div>
                 </div>
             </nav>
             <div class="container mt-4">
                 <div id="backButtonContainer" style="display:none; margin-bottom: 12px;">
-                    <button class="btn btn-outline-secondary btn-sm" onclick="patientManager.goBack()">
-                        ⬅️ Back
-                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="patientManager.goBack()">⬅️ Back</button>
                 </div>
                 <div id="patientContent"></div>
             </div>
@@ -86,7 +70,6 @@ class PatientManager {
     }
 
     attachEvents() {
-        // Navigation links
         document.querySelectorAll('[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -97,7 +80,6 @@ class PatientManager {
             });
         });
 
-        // Logout
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -113,22 +95,29 @@ class PatientManager {
         console.log('Loading view:', view);
         const content = document.getElementById('patientContent');
         if (!content) {
-            console.error('Content element not found');
+            console.error('Content element not found - recreating...');
+            // Try to recreate the content container
+            const container = document.querySelector('.container.mt-4');
+            if (container) {
+                const newContent = document.createElement('div');
+                newContent.id = 'patientContent';
+                container.appendChild(newContent);
+                // Retry loading
+                setTimeout(() => this.loadView(view), 100);
+                return;
+            }
             return;
         }
 
-        // Show/hide back button
         const backBtn = document.getElementById('backButtonContainer');
         if (backBtn) {
             backBtn.style.display = view === 'dashboard' ? 'none' : 'block';
         }
 
-        // Update active nav
         document.querySelectorAll('[data-view]').forEach(link => {
             link.classList.toggle('active', link.dataset.view === view);
         });
 
-        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -138,13 +127,11 @@ class PatientManager {
             </div>
         `;
 
-        // Push to history
         this.viewHistory.push(view);
         if (this.viewHistory.length > 10) {
             this.viewHistory.shift();
         }
 
-        // Load the view
         try {
             switch(view) {
                 case 'dashboard':
@@ -163,7 +150,6 @@ class PatientManager {
                     await this.loadProfileContent(content);
                     break;
                 default:
-                    console.warn('Unknown view:', view);
                     await this.loadDashboardContent(content);
             }
         } catch (error) {
@@ -172,9 +158,7 @@ class PatientManager {
                 <div class="alert alert-danger">
                     ❌ Error loading view: ${error.message}
                 </div>
-                <button class="btn btn-primary mt-3" onclick="patientManager.loadView('dashboard')">
-                    ⬅️ Back to Dashboard
-                </button>
+                <button class="btn btn-primary mt-3" onclick="patientManager.loadView('dashboard')">⬅️ Back to Dashboard</button>
             `;
         }
     }
@@ -186,7 +170,7 @@ class PatientManager {
     }
 
     // =============================================
-    // CHAT CONTENT
+    // CHAT CONTENT - FIXED
     // =============================================
     async loadChatContent(container) {
         console.log('Loading chat content...');
@@ -202,22 +186,15 @@ class PatientManager {
                             <div style="font-size: 4rem; color: var(--text-lighter);">💬</div>
                             <h5 class="mt-3">Chat Feature</h5>
                             <p class="text-muted">Connect with your doctors in real-time</p>
-                            <div class="alert alert-info">
-                                ℹ️ Chat is being initialized. Please wait...
-                            </div>
-                            <button class="btn btn-primary mt-3" onclick="patientManager.loadView('chat')">
-                                🔄 Retry
-                            </button>
-                            <button class="btn btn-outline-secondary mt-3 ms-2" onclick="patientManager.loadView('dashboard')">
-                                ⬅️ Back to Dashboard
-                            </button>
+                            <div class="alert alert-info">ℹ️ Chat is being initialized. Please wait...</div>
+                            <button class="btn btn-primary mt-3" onclick="patientManager.loadView('chat')">🔄 Retry</button>
+                            <button class="btn btn-outline-secondary mt-3 ms-2" onclick="patientManager.loadView('dashboard')">⬅️ Back to Dashboard</button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
 
-        // Try to load chat if available
         if (window.chatManager && typeof window.chatManager.showChatInterface === 'function') {
             setTimeout(() => {
                 try {
@@ -227,11 +204,6 @@ class PatientManager {
                 }
             }, 500);
         }
-    }
-
-    openChatForAppointment(appointmentId, doctorId) {
-        console.log('Opening chat for appointment:', appointmentId, doctorId);
-        this.loadView('chat');
     }
 
     // =============================================
@@ -304,9 +276,7 @@ class PatientManager {
                                             ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
                                         </div>
                                         <div>
-                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">
-                                                ✅ Mark Taken
-                                            </button>
+                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -332,9 +302,7 @@ class PatientManager {
                                         </div>
                                         <div>
                                             <span class="badge bg-warning">KES ${apt.amount_paid || 300}</span>
-                                            <button class="btn btn-sm btn-success ms-2" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">
-                                                💳 Pay Now
-                                            </button>
+                                            <button class="btn btn-sm btn-success ms-2" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">💳 Pay Now</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -419,9 +387,7 @@ class PatientManager {
                                 `).join('')
                                 : '<p class="text-muted">No upcoming appointments</p>'
                             }
-                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">
-                                📅 View All
-                            </button>
+                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">📅 View All</button>
                         </div>
                     </div>
                 </div>
@@ -516,9 +482,7 @@ class PatientManager {
                                         </div>
                                         <div>
                                             ${!med.taken ? `
-                                                <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">
-                                                    ✅ Mark Taken
-                                                </button>
+                                                <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
                                             ` : `
                                                 <span class="badge bg-success">✅ Taken</span>
                                             `}
@@ -620,9 +584,7 @@ class PatientManager {
             <div class="row">
                 <div class="col-12">
                     <h2>📅 My Appointments</h2>
-                    <button class="btn btn-primary mb-3" onclick="patientManager.showBookingModal()">
-                        ➕ Book New
-                    </button>
+                    <button class="btn btn-primary mb-3" onclick="patientManager.showBookingModal()">➕ Book New</button>
                 </div>
             </div>
             <div class="row">
@@ -670,33 +632,19 @@ class PatientManager {
                                                     <td>
                                                         ${apt.status === 'scheduled' ? `
                                                             ${apt.consultation_type === 'video' ? `
-                                                                <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor.full_name}')">
-                                                                    🎥 Join
-                                                                </button>
+                                                                <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor.full_name}')">🎥 Join</button>
                                                             ` : `
                                                                 ${apt.payment_status === 'paid' ? `
-                                                                    <button class="btn btn-sm btn-success mb-1 w-100" onclick="alert('📍 Physical consultation at clinic.')">
-                                                                        📍 Location
-                                                                    </button>
+                                                                    <button class="btn btn-sm btn-success mb-1 w-100" onclick="alert('📍 Physical consultation at clinic.')">📍 Location</button>
                                                                 ` : `
-                                                                    <button class="btn btn-sm btn-warning mb-1 w-100" onclick="patientManager.payPhysicalBooking('${apt.id}', ${apt.amount_paid || 500})">
-                                                                        💳 Pay
-                                                                    </button>
+                                                                    <button class="btn btn-sm btn-warning mb-1 w-100" onclick="patientManager.payPhysicalBooking('${apt.id}', ${apt.amount_paid || 500})">💳 Pay</button>
                                                                 `}
                                                             `}
-                                                            <button class="btn btn-sm btn-secondary mb-1 w-100" onclick="patientManager.loadView('chat')">
-                                                                💬 Chat
-                                                            </button>
-                                                            <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('${apt.id}')">
-                                                                ❌ Cancel
-                                                            </button>
+                                                            <button class="btn btn-sm btn-secondary mb-1 w-100" onclick="patientManager.loadView('chat')">💬 Chat</button>
+                                                            <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('${apt.id}')">❌ Cancel</button>
                                                         ` : apt.status === 'completed' && apt.payment_status === 'pending' && apt.consultation_type === 'video' ? `
-                                                            <button class="btn btn-sm btn-warning w-100" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">
-                                                                💳 Pay Now
-                                                            </button>
-                                                            <button class="btn btn-sm btn-secondary w-100 mt-1" onclick="patientManager.loadView('chat')">
-                                                                💬 Chat
-                                                            </button>
+                                                            <button class="btn btn-sm btn-warning w-100" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">💳 Pay Now</button>
+                                                            <button class="btn btn-sm btn-secondary w-100 mt-1" onclick="patientManager.loadView('chat')">💬 Chat</button>
                                                         ` : apt.status === 'completed' ? '<span class="text-success">✅ Done</span>' : '<span class="text-danger">❌ Cancelled</span>'}
                                                     </td>
                                                 </tr>
@@ -720,13 +668,8 @@ class PatientManager {
         try {
             const userId = authManager.getUserId();
             
-            if (!userId) {
-                throw new Error('User not authenticated. Please log in again.');
-            }
-            
-            if (!doctorId) {
-                throw new Error('Please select a doctor.');
-            }
+            if (!userId) throw new Error('User not authenticated. Please log in again.');
+            if (!doctorId) throw new Error('Please select a doctor.');
 
             const jitsiRoomId = consultationType === 'video' ? `telehealth-${Date.now()}-${userId.substring(0, 8)}` : null;
 
@@ -839,9 +782,7 @@ class PatientManager {
                                     🎥 <strong>Video Call:</strong> KES 300 (pay after call)<br>
                                     🏥 <strong>Physical:</strong> KES 500 (pay now)
                                 </div>
-                                <button type="submit" class="btn btn-primary w-100" id="bookBtn">
-                                    📅 Book Now
-                                </button>
+                                <button type="submit" class="btn btn-primary w-100" id="bookBtn">📅 Book Now</button>
                             </form>
                         </div>
                     </div>
@@ -897,13 +838,9 @@ class PatientManager {
             const fee = consultationType === 'video' ? 300 : 500;
             
             if (consultationType === 'physical') {
-                if (!confirm(`Pay KES ${fee} now to book physical consultation?`)) {
-                    return;
-                }
+                if (!confirm(`Pay KES ${fee} now to book physical consultation?`)) return;
             } else {
-                if (!confirm(`Book video consultation? You'll pay KES ${fee} after the call.`)) {
-                    return;
-                }
+                if (!confirm(`Book video consultation? You'll pay KES ${fee} after the call.`)) return;
             }
 
             const result = await this.bookAppointment(doctorId, consultationType, scheduledAt, notes, fee);
@@ -1081,9 +1018,7 @@ class PatientManager {
                                     <label class="form-label">📱 Phone</label>
                                     <input type="tel" class="form-control" id="phone" value="${profile.phone || ''}">
                                 </div>
-                                <button type="submit" class="btn btn-primary w-100">
-                                    💾 Update Profile
-                                </button>
+                                <button type="submit" class="btn btn-primary w-100">💾 Update Profile</button>
                             </form>
                         </div>
                     </div>
