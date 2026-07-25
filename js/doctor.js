@@ -335,7 +335,7 @@ class DoctorManager {
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
-                    <h2>🏥 Doctor Dashboard</h2>
+                    <h2> Doctor Dashboard</h2>
                     <p class="text-muted">Welcome back, Dr. ${authManager.getUserProfile().full_name}</p>
                 </div>
             </div>
