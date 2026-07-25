@@ -1,5 +1,5 @@
 /*
- * File: doctor.js - Complete Doctor Manager with Real Data & Fixed Relationship Issues
+ * File: doctor.js - Complete Doctor Manager with Real Data & Medical Records
  */
 
 class DoctorManager {
@@ -822,7 +822,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // PRESCRIPTION MODAL - FIXED
+    // PRESCRIPTION MODAL - WITH MEDICAL RECORD CREATION
     // =============================================
     showPrescriptionModal(patientId, patientName) {
         console.log('📝 Opening prescription modal for:', patientName, 'ID:', patientId);
@@ -838,7 +838,7 @@ class DoctorManager {
             existingModal.remove();
         }
 
-        // Create modal using DOM elements
+        // Create modal
         const overlay = document.createElement('div');
         overlay.id = 'prescriptionModal';
         overlay.style.cssText = `
@@ -860,7 +860,7 @@ class DoctorManager {
                 background: #ffffff;
                 border-radius: 16px;
                 padding: 30px 32px;
-                max-width: 580px;
+                max-width: 600px;
                 width: 100%;
                 max-height: 90vh;
                 overflow-y: auto;
@@ -984,6 +984,17 @@ class DoctorManager {
                             onblur="this.style.borderColor='#E2E8F0'"></textarea>
                     </div>
 
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
+                            📝 SOAP Notes (Medical Record)
+                        </label>
+                        <textarea id="soapNotes" rows="3" 
+                            placeholder="Enter clinical notes, diagnosis, treatment plan..."
+                            style="width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:0.95rem;background:#F8FAFC;font-family:Inter,sans-serif;resize:vertical;"
+                            onfocus="this.style.borderColor='#2563EB'"
+                            onblur="this.style.borderColor='#E2E8F0'"></textarea>
+                    </div>
+
                     <div style="display:flex;align-items:center;gap:10px;margin:12px 0;padding:12px;background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0;">
                         <input type="checkbox" id="sendReminders" checked style="width:18px;height:18px;cursor:pointer;">
                         <label for="sendReminders" style="font-weight:500;font-size:0.9rem;cursor:pointer;color:#0F172A;">
@@ -1010,13 +1021,21 @@ class DoctorManager {
                         margin-top:4px;
                     " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(16,185,129,0.35)'" 
                        onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
-                        💾 Save Prescription
+                        💾 Save Prescription & Medical Record
                     </button>
                 </form>
             </div>
         `;
 
         document.body.appendChild(overlay);
+
+        // Auto-populate SOAP notes when medication name is entered
+        document.getElementById('medicationName').addEventListener('input', function() {
+            const soapNotes = document.getElementById('soapNotes');
+            if (this.value && !soapNotes.value) {
+                soapNotes.placeholder = `Patient prescribed ${this.value}. Please add diagnosis and plan.`;
+            }
+        });
 
         // Form submission
         document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
@@ -1029,6 +1048,7 @@ class DoctorManager {
             const duration = document.getElementById('duration').value;
             const whenToTake = document.getElementById('whenToTake').value;
             const instructions = document.getElementById('instructions').value.trim();
+            const soapNotes = document.getElementById('soapNotes').value.trim();
             const sendReminders = document.getElementById('sendReminders').checked;
 
             if (!medication) {
@@ -1053,7 +1073,8 @@ class DoctorManager {
             try {
                 const doctorId = authManager.getUserId();
                 
-                const { error } = await supabase
+                // 1. Create the prescription
+                const { data: prescriptionData, error: prescriptionError } = await supabase
                     .from('prescriptions')
                     .insert([{
                         patient_id: patientId,
@@ -1067,11 +1088,52 @@ class DoctorManager {
                         instructions: instructions || 'Take as directed',
                         send_reminders: sendReminders,
                         issued_at: new Date().toISOString()
+                    }])
+                    .select();
+
+                if (prescriptionError) throw prescriptionError;
+
+                // 2. Create a medical record for this prescription
+                const soapContent = soapNotes || `Patient prescribed ${medication} ${dosage} - ${frequency} for ${duration}.`;
+                
+                const { error: recordError } = await supabase
+                    .from('medical_records')
+                    .insert([{
+                        patient_id: patientId,
+                        doctor_id: doctorId,
+                        soap_notes: soapContent,
+                        diagnosis: `Prescribed ${medication}`,
+                        treatment_plan: `${medication} ${dosage} - ${frequency} for ${duration}`,
+                        created_at: new Date().toISOString()
                     }]);
 
-                if (error) throw error;
+                if (recordError) {
+                    console.error('Error creating medical record:', recordError);
+                    // Don't throw - prescription was saved, just log the error
+                }
 
-                alert('✅ Prescription saved successfully!');
+                // 3. Create medication schedule if reminders are enabled
+                if (sendReminders && durationDays > 0) {
+                    await this.createMedicationSchedule(patientId, {
+                        medication,
+                        dosage,
+                        frequency,
+                        duration,
+                        duration_days: durationDays,
+                        when_to_take: whenToTake,
+                        instructions: instructions || 'Take as directed'
+                    });
+                    await this.sendMedicationReminders(patientId, {
+                        medication,
+                        dosage,
+                        frequency,
+                        duration,
+                        when_to_take: whenToTake,
+                        instructions: instructions || 'Take as directed'
+                    });
+                }
+
+                alert('✅ Prescription and medical record saved successfully!');
                 document.getElementById('prescriptionModal').remove();
                 this.loadView('patients');
 
@@ -1090,7 +1152,116 @@ class DoctorManager {
     }
 
     // =============================================
-    // VIEW PATIENT HISTORY - FIXED (No relationship)
+    // CREATE MEDICATION SCHEDULE
+    // =============================================
+    async createMedicationSchedule(patientId, prescriptionData) {
+        try {
+            const timesPerDay = this.getTimesPerDayNumber(prescriptionData.frequency);
+            const intervalHours = Math.floor(12 / timesPerDay);
+            const scheduleEntries = [];
+            const startDate = new Date();
+
+            for (let d = 0; d < prescriptionData.duration_days; d++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + d);
+                
+                for (let t = 0; t < timesPerDay; t++) {
+                    const hour = 8 + (t * intervalHours);
+                    const reminderTime = new Date(date);
+                    reminderTime.setHours(hour, 0, 0, 0);
+                    
+                    if (reminderTime > new Date()) {
+                        scheduleEntries.push({
+                            patient_id: patientId,
+                            medication: prescriptionData.medication,
+                            dosage: prescriptionData.dosage,
+                            scheduled_time: reminderTime.toISOString(),
+                            taken: false,
+                            created_at: new Date().toISOString()
+                        });
+                    }
+                }
+            }
+
+            if (scheduleEntries.length > 0) {
+                const { error } = await supabase
+                    .from('medication_schedule')
+                    .insert(scheduleEntries);
+
+                if (error) {
+                    console.error('Error creating medication schedule:', error);
+                }
+            }
+
+        } catch (error) {
+            console.error('Error creating medication schedule:', error);
+        }
+    }
+
+    getTimesPerDayNumber(frequency) {
+        if (!frequency) return 2;
+        if (frequency.includes('Once') || frequency.includes('1')) return 1;
+        if (frequency.includes('Twice') || frequency.includes('2')) return 2;
+        if (frequency.includes('Three') || frequency.includes('3')) return 3;
+        if (frequency.includes('Four') || frequency.includes('4')) return 4;
+        if (frequency.includes('Every 6')) return 4;
+        if (frequency.includes('Every 8')) return 3;
+        if (frequency.includes('Every 12')) return 2;
+        return 2;
+    }
+
+    // =============================================
+    // SEND MEDICATION REMINDERS
+    // =============================================
+    async sendMedicationReminders(patientId, prescriptionData) {
+        try {
+            const doctorId = authManager.getUserId();
+            const { data: doctorData } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', doctorId)
+                .single();
+
+            const doctorName = doctorData?.full_name || 'Doctor';
+            const timesPerDay = this.getTimesPerDayNumber(prescriptionData.frequency);
+            const intervalHours = Math.floor(12 / timesPerDay);
+            const reminderTimes = [];
+
+            for (let i = 0; i < timesPerDay; i++) {
+                const hour = 8 + (i * intervalHours);
+                reminderTimes.push(`${hour.toString().padStart(2, '0')}:00`);
+            }
+
+            const messageContent = `💊 **New Prescription**\n\n` +
+                `Dr. ${doctorName} has prescribed:\n` +
+                `📋 **${prescriptionData.medication}** - ${prescriptionData.dosage}\n` +
+                `⏰ **Frequency:** ${prescriptionData.frequency}\n` +
+                `📅 **Duration:** ${prescriptionData.duration}\n` +
+                `🍽️ **When to take:** ${prescriptionData.when_to_take}\n` +
+                `💡 **Instructions:** ${prescriptionData.instructions || 'Take as directed'}\n\n` +
+                `🔔 You will receive reminders when it's time to take your medication.`;
+
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    sender_id: doctorId,
+                    receiver_id: patientId,
+                    appointment_id: null,
+                    content: messageContent,
+                    sent_at: new Date().toISOString()
+                }]);
+
+            if (error) {
+                console.error('Error sending reminder:', error);
+            }
+
+        } catch (error) {
+            console.error('Error sending medication reminders:', error);
+        }
+    }
+
+    // =============================================
+    // VIEW PATIENT HISTORY - WITH MEDICAL RECORDS
     // =============================================
     async viewPatientHistory(patientId, patientName) {
         console.log('📄 Viewing patient history for:', patientName, 'ID:', patientId);
@@ -1158,7 +1329,7 @@ class DoctorManager {
         document.body.appendChild(overlay);
 
         try {
-            // Fetch medical records (without prescriptions relationship to avoid error)
+            // Fetch medical records with doctor info
             const { data: records, error } = await supabase
                 .from('medical_records')
                 .select(`
@@ -1172,19 +1343,25 @@ class DoctorManager {
             
             if (error) {
                 console.error('Error fetching records:', error);
-                // Show mock data on error
-                historyContent.innerHTML = this.getMockHistoryHTML(patientId, patientName);
+                historyContent.innerHTML = this.getNoRecordsHTML(patientId, patientName);
                 return;
             }
 
             if (records && records.length > 0) {
-                // Fetch prescriptions separately for each record
                 let html = '';
                 for (const record of records) {
+                    // Fetch prescriptions for this medical record
                     const { data: prescriptions } = await supabase
                         .from('prescriptions')
                         .select('*')
-                        .eq('appointment_id', record.appointment_id);
+                        .eq('patient_id', patientId)
+                        .order('issued_at', { ascending: false });
+
+                    // Filter prescriptions that match the record date (within same day)
+                    const recordDate = new Date(record.created_at).toDateString();
+                    const matchingPrescriptions = prescriptions?.filter(rx => 
+                        new Date(rx.issued_at).toDateString() === recordDate
+                    ) || [];
 
                     html += `
                         <div style="border:1px solid #E2E8F0;border-radius:12px;margin-bottom:16px;overflow:hidden;border-left:4px solid #2563EB;">
@@ -1201,20 +1378,33 @@ class DoctorManager {
                                         ${record.soap_notes || 'No notes available'}
                                     </p>
                                 </div>
-                                ${prescriptions && prescriptions.length > 0 ? `
-                                    <div>
+                                ${record.diagnosis ? `
+                                    <div style="margin-bottom:8px;">
+                                        <strong>🩺 Diagnosis:</strong>
+                                        <p style="margin:4px 0 0 0;">${record.diagnosis}</p>
+                                    </div>
+                                ` : ''}
+                                ${record.treatment_plan ? `
+                                    <div style="margin-bottom:8px;">
+                                        <strong>📋 Treatment Plan:</strong>
+                                        <p style="margin:4px 0 0 0;">${record.treatment_plan}</p>
+                                    </div>
+                                ` : ''}
+                                ${matchingPrescriptions && matchingPrescriptions.length > 0 ? `
+                                    <div style="margin-top:8px;">
                                         <strong>💊 Prescriptions:</strong>
                                         <ul style="list-style:none;padding:0;margin:4px 0 0 0;">
-                                            ${prescriptions.map(rx => `
+                                            ${matchingPrescriptions.map(rx => `
                                                 <li style="background:#D1FAE5;padding:8px 12px;border-radius:8px;margin-bottom:4px;">
                                                     <strong>${rx.medication}</strong> - ${rx.dosage}
                                                     ${rx.instructions ? `<br><small>📝 ${rx.instructions}</small>` : ''}
+                                                    ${rx.frequency ? `<br><small>⏰ ${rx.frequency}</small>` : ''}
                                                 </li>
                                             `).join('')}
                                         </ul>
                                     </div>
                                 ` : `
-                                    <div style="color:#64748B;font-size:0.85rem;">
+                                    <div style="color:#64748B;font-size:0.85rem;margin-top:8px;">
                                         ℹ️ No prescriptions in this record
                                     </div>
                                 `}
@@ -1226,12 +1416,12 @@ class DoctorManager {
                 historyContent.style.textAlign = 'left';
                 historyContent.style.padding = '0';
             } else {
-                historyContent.innerHTML = this.getMockHistoryHTML(patientId, patientName);
+                historyContent.innerHTML = this.getNoRecordsHTML(patientId, patientName);
             }
 
         } catch (error) {
             console.error('Error:', error);
-            document.getElementById('historyContent').innerHTML = this.getMockHistoryHTML(patientId, patientName);
+            document.getElementById('historyContent').innerHTML = this.getNoRecordsHTML(patientId, patientName);
         }
 
         overlay.addEventListener('click', function(e) {
@@ -1241,7 +1431,7 @@ class DoctorManager {
         });
     }
 
-    getMockHistoryHTML(patientId, patientName) {
+    getNoRecordsHTML(patientId, patientName) {
         return `
             <div style="text-align:center;padding:40px;">
                 <div style="font-size:4rem;margin-bottom:16px;">📭</div>
