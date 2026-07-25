@@ -1,5 +1,5 @@
 /*
- * File: doctor.js - Complete Doctor Manager with FIXED Prescription Modal
+ * File: doctor.js - Complete Doctor Manager with Real Data
  */
 
 class DoctorManager {
@@ -169,7 +169,7 @@ class DoctorManager {
         const notifBtn = document.getElementById('notificationBtn');
         if (notifBtn) {
             notifBtn.addEventListener('click', () => {
-                alert('🔔 Notifications:\n\n• 3 new messages\n• 2 upcoming appointments\n• 1 prescription refill request');
+                this.showNotifications();
             });
         }
 
@@ -277,29 +277,60 @@ class DoctorManager {
     }
 
     // =============================================
-    // DASHBOARD CONTENT
+    // DASHBOARD CONTENT - REAL DATA
     // =============================================
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
         
-        const todayAppointments = [
-            { 
-                id: '1', 
-                patient_id: 'p1',
-                patient: { full_name: 'John Doe', email: 'john@email.com', phone: '0712345678' }, 
-                scheduled_at: new Date().toISOString(), 
-                consultation_type: 'video', 
-                status: 'scheduled' 
-            },
-            { 
-                id: '2', 
-                patient_id: 'p2',
-                patient: { full_name: 'Jane Smith', email: 'jane@email.com', phone: '0723456789' }, 
-                scheduled_at: new Date(Date.now() + 3600000).toISOString(), 
-                consultation_type: 'physical', 
-                status: 'scheduled' 
-            }
-        ];
+        // Get today's appointments
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const { data: todayAppointments } = await supabase
+            .from('appointments')
+            .select(`
+                *,
+                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone)
+            `)
+            .eq('doctor_id', userId)
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', today.toISOString())
+            .lt('scheduled_at', tomorrow.toISOString())
+            .order('scheduled_at', { ascending: true });
+
+        // Get total patients (distinct)
+        const { data: patientData } = await supabase
+            .from('appointments')
+            .select('patient_id')
+            .eq('doctor_id', userId);
+        
+        const uniquePatients = patientData ? [...new Set(patientData.map(p => p.patient_id))] : [];
+        const patientCount = uniquePatients.length;
+
+        // Get completed appointments this month
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        const { count: completedCount } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('doctor_id', userId)
+            .eq('status', 'completed')
+            .gte('scheduled_at', thisMonth.toISOString());
+
+        // Get unread messages
+        const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_id', userId)
+            .is('read_at', null);
+
+        // Get prescriptions count
+        const { count: prescriptionCount } = await supabase
+            .from('prescriptions')
+            .select('*', { count: 'exact', head: true })
+            .eq('doctor_id', userId);
 
         container.innerHTML = `
             <div class="row">
@@ -312,19 +343,19 @@ class DoctorManager {
             <div class="stats-grid">
                 <div class="stat-card" onclick="doctorManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Today's Appointments</div>
-                    <div class="stat-value accent">${todayAppointments.length}</div>
+                    <div class="stat-value accent">${todayAppointments?.length || 0}</div>
                 </div>
                 <div class="stat-card" onclick="doctorManager.loadView('patients')" style="cursor:pointer;">
                     <div class="stat-label">👥 Total Patients</div>
-                    <div class="stat-value success">12</div>
+                    <div class="stat-value success">${patientCount || 0}</div>
                 </div>
-                <div class="stat-card" onclick="doctorManager.showPrescriptionModal('p1', 'John Doe')" style="cursor:pointer;">
-                    <div class="stat-label">💊 New Prescription</div>
-                    <div class="stat-value warning">+</div>
+                <div class="stat-card" onclick="doctorManager.loadView('patients')" style="cursor:pointer;">
+                    <div class="stat-label">💊 Prescriptions</div>
+                    <div class="stat-value warning">${prescriptionCount || 0}</div>
                 </div>
                 <div class="stat-card" onclick="doctorManager.loadView('chat')" style="cursor:pointer;">
                     <div class="stat-label">💬 Unread Messages</div>
-                    <div class="stat-value danger">3</div>
+                    <div class="stat-value danger">${unreadCount || 0}</div>
                 </div>
             </div>
 
@@ -333,10 +364,17 @@ class DoctorManager {
                     <div class="card">
                         <div class="card-header">
                             <h5 class="card-title">📋 Today's Schedule</h5>
-                            <span class="badge bg-primary">${todayAppointments.length} appointments</span>
+                            <span class="badge bg-primary">${todayAppointments?.length || 0} appointments</span>
                         </div>
                         <div class="card-body">
-                            ${todayAppointments.map(apt => this._renderAppointmentCard(apt)).join('')}
+                            ${todayAppointments && todayAppointments.length > 0
+                                ? todayAppointments.map(apt => this._renderAppointmentCard(apt)).join('')
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">🎉</div>
+                                    <p class="text-muted">No appointments scheduled for today</p>
+                                    <p class="text-muted small">Enjoy your free time or catch up on patient records.</p>
+                                </div>`
+                            }
                         </div>
                     </div>
                 </div>
@@ -346,7 +384,7 @@ class DoctorManager {
 
     _renderAppointmentCard(apt) {
         const patientName = apt.patient?.full_name || 'Unknown Patient';
-        const patientId = apt.patient_id || 'p1';
+        const patientId = apt.patient_id;
         const patientInitial = patientName.charAt(0) || 'P';
         const appointmentTime = new Date(apt.scheduled_at);
         const timeStr = appointmentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -380,9 +418,15 @@ class DoctorManager {
                     </span>
                 </div>
                 <div class="appointment-actions">
-                    <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', 'room-${apt.id}', '${patientName}')">
-                        🎥 Start Call
-                    </button>
+                    ${apt.consultation_type === 'video' ? `
+                        <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${patientName}')">
+                            🎥 Start Call
+                        </button>
+                    ` : `
+                        <button class="btn btn-sm btn-success" onclick="alert('📍 Physical consultation at clinic.')">
+                            📍 Location
+                        </button>
+                    `}
                     <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('${patientId}', '${patientName}')">
                         💊 Prescribe
                     </button>
@@ -407,9 +451,28 @@ class DoctorManager {
     }
 
     // =============================================
-    // APPOINTMENTS CONTENT
+    // APPOINTMENTS CONTENT - REAL DATA
     // =============================================
     async loadAppointmentsContent(container) {
+        const userId = authManager.getUserId();
+        
+        const { data: appointments } = await supabase
+            .from('appointments')
+            .select(`
+                *,
+                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone)
+            `)
+            .eq('doctor_id', userId)
+            .order('scheduled_at', { ascending: false });
+
+        const now = new Date();
+        const upcoming = appointments?.filter(a => new Date(a.scheduled_at) > now && a.status === 'scheduled') || [];
+        const today = appointments?.filter(a => {
+            const date = new Date(a.scheduled_at);
+            return date.toDateString() === now.toDateString() && a.status === 'scheduled';
+        }) || [];
+        const past = appointments?.filter(a => new Date(a.scheduled_at) < now && a.status !== 'scheduled') || [];
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
@@ -421,15 +484,15 @@ class DoctorManager {
             <div class="stats-grid">
                 <div class="stat-card" onclick="doctorManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Today</div>
-                    <div class="stat-value accent">2</div>
+                    <div class="stat-value accent">${today.length}</div>
                 </div>
                 <div class="stat-card" onclick="doctorManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Upcoming</div>
-                    <div class="stat-value success">5</div>
+                    <div class="stat-value success">${upcoming.length}</div>
                 </div>
                 <div class="stat-card" onclick="doctorManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📋 Past</div>
-                    <div class="stat-value">12</div>
+                    <div class="stat-value">${past.length}</div>
                 </div>
             </div>
 
@@ -438,47 +501,63 @@ class DoctorManager {
                     <div class="card">
                         <div class="card-header">
                             <h5 class="card-title">All Appointments</h5>
-                            <span class="badge bg-primary">19</span>
+                            <span class="badge bg-primary">${appointments?.length || 0}</span>
                         </div>
                         <div class="card-body">
-                            <div class="table-wrap">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Patient</th>
-                                            <th>Type</th>
-                                            <th>Date</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><strong>John Doe</strong></td>
-                                            <td>🎥 Video</td>
-                                            <td>Today 10:00 AM</td>
-                                            <td><span class="pill pill-scheduled">Scheduled</span></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('1', 'room-1', 'John Doe')">🎥</button>
-                                                <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('p1', 'John Doe')">💊</button>
-                                                <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">💬</button>
-                                                <button class="btn btn-sm btn-secondary" onclick="doctorManager.viewPatientHistory('p1', 'John Doe')">📄</button>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Jane Smith</strong></td>
-                                            <td>🏥 Physical</td>
-                                            <td>Today 2:30 PM</td>
-                                            <td><span class="pill pill-scheduled">Scheduled</span></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('p2', 'Jane Smith')">💊</button>
-                                                <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">💬</button>
-                                                <button class="btn btn-sm btn-secondary" onclick="doctorManager.viewPatientHistory('p2', 'Jane Smith')">📄</button>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            ${appointments && appointments.length > 0
+                                ? `<div class="table-wrap">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Patient</th>
+                                                <th>Type</th>
+                                                <th>Date</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${appointments.map(apt => `
+                                                <tr>
+                                                    <td><strong>${apt.patient?.full_name || 'Unknown'}</strong></td>
+                                                    <td>
+                                                        <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
+                                                            ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type || 'video'}
+                                                        </span>
+                                                    </td>
+                                                    <td><small>${new Date(apt.scheduled_at).toLocaleString()}</small></td>
+                                                    <td>
+                                                        <span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">
+                                                            ${apt.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        ${apt.status === 'scheduled' ? `
+                                                            ${apt.consultation_type === 'video' ? `
+                                                                <button class="btn btn-sm btn-primary" onclick="doctorManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.patient?.full_name || 'Patient'}')">🎥</button>
+                                                            ` : `
+                                                                <button class="btn btn-sm btn-success" onclick="alert('📍 Physical consultation at clinic.')">📍</button>
+                                                            `}
+                                                            <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('${apt.patient_id}', '${apt.patient?.full_name || 'Patient'}')">💊</button>
+                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">💬</button>
+                                                            <button class="btn btn-sm btn-secondary" onclick="doctorManager.viewPatientHistory('${apt.patient_id}', '${apt.patient?.full_name || 'Patient'}')">📄</button>
+                                                        ` : apt.status === 'completed' ? `
+                                                            <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('${apt.patient_id}', '${apt.patient?.full_name || 'Patient'}')">💊</button>
+                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">💬</button>
+                                                            <button class="btn btn-sm btn-secondary" onclick="doctorManager.viewPatientHistory('${apt.patient_id}', '${apt.patient?.full_name || 'Patient'}')">📄</button>
+                                                        ` : '<span class="text-muted">-</span>'}
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>`
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">📭</div>
+                                    <p class="text-muted">No appointments found</p>
+                                    <p class="text-muted small">Patients will book appointments with you through the system.</p>
+                                </div>`
+                            }
                         </div>
                     </div>
                 </div>
@@ -487,15 +566,28 @@ class DoctorManager {
     }
 
     // =============================================
-    // PATIENTS CONTENT
+    // PATIENTS CONTENT - REAL DATA
     // =============================================
     async loadPatientsContent(container) {
-        const patients = [
-            { id: 'p1', full_name: 'John Doe', email: 'john@email.com', phone: '0712345678' },
-            { id: 'p2', full_name: 'Jane Smith', email: 'jane@email.com', phone: '0723456789' },
-            { id: 'p3', full_name: 'Bob Johnson', email: 'bob@email.com', phone: '0734567890' },
-            { id: 'p4', full_name: 'Alice Brown', email: 'alice@email.com', phone: '0745678901' }
-        ];
+        const userId = authManager.getUserId();
+        
+        const { data: patients } = await supabase
+            .from('appointments')
+            .select(`
+                patient_id,
+                patient:profiles!appointments_patient_id_fkey (id, full_name, email, phone, created_at)
+            `)
+            .eq('doctor_id', userId);
+
+        const patientMap = new Map();
+        if (patients) {
+            patients.forEach(p => {
+                if (p.patient && !patientMap.has(p.patient_id)) {
+                    patientMap.set(p.patient_id, p.patient);
+                }
+            });
+        }
+        const uniquePatients = Array.from(patientMap.values());
 
         container.innerHTML = `
             <div class="row">
@@ -508,15 +600,15 @@ class DoctorManager {
             <div class="stats-grid">
                 <div class="stat-card" onclick="doctorManager.loadView('patients')" style="cursor:pointer;">
                     <div class="stat-label">👥 Total Patients</div>
-                    <div class="stat-value success">${patients.length}</div>
+                    <div class="stat-value success">${uniquePatients.length}</div>
                 </div>
                 <div class="stat-card" onclick="doctorManager.loadView('patients')" style="cursor:pointer;">
-                    <div class="stat-label">💊 Active Prescriptions</div>
-                    <div class="stat-value warning">8</div>
+                    <div class="stat-label">💊 Prescriptions</div>
+                    <div class="stat-value warning">0</div>
                 </div>
                 <div class="stat-card" onclick="doctorManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Follow-ups</div>
-                    <div class="stat-value accent">3</div>
+                    <div class="stat-value accent">0</div>
                 </div>
             </div>
 
@@ -525,43 +617,50 @@ class DoctorManager {
                     <div class="card">
                         <div class="card-header">
                             <h5 class="card-title">Patient List</h5>
-                            <span class="badge bg-primary">${patients.length} patients</span>
+                            <span class="badge bg-primary">${uniquePatients.length} patients</span>
                         </div>
                         <div class="card-body">
-                            <div class="table-wrap">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Patient</th>
-                                            <th>Email</th>
-                                            <th>Phone</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${patients.map(patient => `
+                            ${uniquePatients && uniquePatients.length > 0
+                                ? `<div class="table-wrap">
+                                    <table class="table">
+                                        <thead>
                                             <tr>
-                                                <td><strong>${patient.full_name}</strong></td>
-                                                <td>${patient.email}</td>
-                                                <td>${patient.phone}</td>
-                                                <td>
-                                                    <div class="d-flex flex-wrap gap-1">
-                                                        <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name}')">
-                                                            📄 History
-                                                        </button>
-                                                        <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('${patient.id}', '${patient.full_name}')">
-                                                            💊 Prescribe
-                                                        </button>
-                                                        <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">
-                                                            💬 Message
-                                                        </button>
-                                                    </div>
-                                                </td>
+                                                <th>Patient</th>
+                                                <th>Email</th>
+                                                <th>Phone</th>
+                                                <th>Actions</th>
                                             </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            ${uniquePatients.map(patient => `
+                                                <tr>
+                                                    <td><strong>${patient.full_name || 'Unknown'}</strong></td>
+                                                    <td>${patient.email || 'N/A'}</td>
+                                                    <td>${patient.phone || '-'}</td>
+                                                    <td>
+                                                        <div class="d-flex flex-wrap gap-1">
+                                                            <button class="btn btn-sm btn-primary" onclick="doctorManager.viewPatientHistory('${patient.id}', '${patient.full_name || 'Patient'}')">
+                                                                📄 History
+                                                            </button>
+                                                            <button class="btn btn-sm btn-success" onclick="doctorManager.showPrescriptionModal('${patient.id}', '${patient.full_name || 'Patient'}')">
+                                                                💊 Prescribe
+                                                            </button>
+                                                            <button class="btn btn-sm btn-info" onclick="doctorManager.loadView('chat')">
+                                                                💬 Message
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>`
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">👥</div>
+                                    <p class="text-muted">No patients found</p>
+                                    <p class="text-muted small">Start by scheduling appointments with patients.</p>
+                                </div>`
+                            }
                         </div>
                     </div>
                 </div>
@@ -573,45 +672,63 @@ class DoctorManager {
     // CHAT CONTENT
     // =============================================
     async loadChatContent(container) {
+        const userId = authManager.getUserId();
+        
+        // Get recent conversations
+        const { data: conversations } = await supabase
+            .from('messages')
+            .select(`
+                *,
+                sender:profiles!messages_sender_id_fkey (id, full_name, role),
+                receiver:profiles!messages_receiver_id_fkey (id, full_name, role)
+            `)
+            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+            .order('sent_at', { ascending: false });
+
+        // Get unique conversation partners
+        const partnerMap = new Map();
+        if (conversations) {
+            conversations.forEach(msg => {
+                const partner = msg.sender_id === userId ? msg.receiver : msg.sender;
+                if (partner && !partnerMap.has(partner.id)) {
+                    partnerMap.set(partner.id, {
+                        ...partner,
+                        lastMessage: msg.content,
+                        lastMessageTime: msg.sent_at,
+                        unreadCount: msg.receiver_id === userId && !msg.read_at ? 1 : 0
+                    });
+                }
+            });
+        }
+        const chatPartners = Array.from(partnerMap.values());
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0">💬 Messages</h5>
-                            <button class="btn btn-sm btn-primary" onclick="alert('📱 New message composer opened')">✏️ New</button>
                         </div>
                         <div class="card-body">
-                            <div class="mb-3">
-                                <h6>Recent Conversations</h6>
-                                <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="alert('💬 Opening chat with John Doe')" style="cursor:pointer;">
-                                    <div>
-                                        <strong>👤 John Doe</strong>
-                                        <p class="mb-0 small text-muted">Last message: 10:30 AM</p>
+                            ${chatPartners && chatPartners.length > 0
+                                ? chatPartners.map(partner => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom" style="cursor:pointer;" onclick="doctorManager.openChatWithUser('${partner.id}')">
+                                        <div>
+                                            <strong>${partner.full_name}</strong>
+                                            <p class="mb-0 small text-muted">${partner.lastMessage?.substring(0, 50) || 'No messages'}</p>
+                                        </div>
+                                        <div>
+                                            ${partner.unreadCount > 0 ? `<span class="badge bg-danger">${partner.unreadCount}</span>` : ''}
+                                            <small class="text-muted">${partner.lastMessageTime ? new Date(partner.lastMessageTime).toLocaleDateString() : ''}</small>
+                                        </div>
                                     </div>
-                                    <span class="badge bg-danger">2</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="alert('💬 Opening chat with Jane Smith')" style="cursor:pointer;">
-                                    <div>
-                                        <strong>👤 Jane Smith</strong>
-                                        <p class="mb-0 small text-muted">Last message: Yesterday</p>
-                                    </div>
-                                    <span class="badge bg-secondary">0</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="alert('💬 Opening chat with Bob Johnson')" style="cursor:pointer;">
-                                    <div>
-                                        <strong>👤 Bob Johnson</strong>
-                                        <p class="mb-0 small text-muted">Last message: 2 days ago</p>
-                                    </div>
-                                    <span class="badge bg-danger">1</span>
-                                </div>
-                            </div>
-                            <div class="mt-3">
-                                <div class="d-flex gap-2">
-                                    <input type="text" class="form-control" placeholder="Type a message..." id="chatInput">
-                                    <button class="btn btn-primary" onclick="alert('📤 Sending message...')">📤 Send</button>
-                                </div>
-                            </div>
+                                `).join('')
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">💬</div>
+                                    <p class="text-muted">No messages yet</p>
+                                    <p class="text-muted small">Start a conversation with your patients.</p>
+                                </div>`
+                            }
                         </div>
                     </div>
                 </div>
@@ -619,8 +736,16 @@ class DoctorManager {
         `;
     }
 
+    openChatWithUser(userId) {
+        if (window.chatManager) {
+            window.chatManager.showChatInterface(null, userId);
+        } else {
+            alert('💬 Chat feature is being loaded. Please try again.');
+        }
+    }
+
     // =============================================
-    // PROFILE CONTENT
+    // PROFILE CONTENT - REAL DATA
     // =============================================
     async loadProfileContent(container) {
         const profile = authManager.getUserProfile();
@@ -699,23 +824,41 @@ class DoctorManager {
     }
 
     // =============================================
-    // PRESCRIPTION MODAL - FULLY VISIBLE FIXED
+    // NOTIFICATIONS
+    // =============================================
+    async showNotifications() {
+        const userId = authManager.getUserId();
+        
+        const { count: unreadMessages } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_id', userId)
+            .is('read_at', null);
+
+        const { count: todayAppointments } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('doctor_id', userId)
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', new Date().toISOString());
+
+        alert(`🔔 Notifications:\n\n• ${unreadMessages || 0} unread messages\n• ${todayAppointments || 0} appointments today`);
+    }
+
+    // =============================================
+    // PRESCRIPTION MODAL
     // =============================================
     showPrescriptionModal(patientId, patientName) {
-        console.log('📝 Opening prescription modal for:', patientName, 'ID:', patientId);
-        
         if (!patientId || patientId === 'undefined' || patientId === 'null') {
             alert('❌ Error: Invalid patient ID. Please try again.');
             return;
         }
 
-        // Remove existing modal
         const existingModal = document.getElementById('prescriptionModal');
         if (existingModal) {
             existingModal.remove();
         }
 
-        // Create modal with inline styles (no CSS dependency)
         const modalHtml = `
             <div id="prescriptionModal" style="
                 position: fixed;
@@ -729,7 +872,6 @@ class DoctorManager {
                 justify-content: center;
                 z-index: 999999;
                 padding: 20px;
-                animation: none;
             ">
                 <div style="
                     background: #ffffff;
@@ -743,7 +885,6 @@ class DoctorManager {
                     position: relative;
                     border: 1px solid #e2e8f0;
                 ">
-                    <!-- Header -->
                     <div style="
                         display: flex;
                         justify-content: space-between;
@@ -774,7 +915,6 @@ class DoctorManager {
                         </button>
                     </div>
 
-                    <!-- Form -->
                     <form id="prescriptionForm">
                         <input type="hidden" id="prescriptionPatientId" value="${patientId}">
                         
@@ -894,10 +1034,8 @@ class DoctorManager {
             </div>
         `;
 
-        // Insert into DOM
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        // Handle form submission
         document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -945,19 +1083,14 @@ class DoctorManager {
             try {
                 const doctorId = authManager.getUserId();
                 
-                const { data, error } = await supabase
+                const { error } = await supabase
                     .from('prescriptions')
                     .insert([{
                         ...prescriptionData,
                         doctor_id: doctorId
-                    }])
-                    .select();
+                    }]);
 
-                if (error) {
-                    console.error('Supabase error:', error);
-                    alert('❌ Failed to save prescription: ' + error.message);
-                    return;
-                }
+                if (error) throw error;
 
                 if (sendReminders && durationDays > 0) {
                     await this.createMedicationSchedule(patientId, prescriptionData);
@@ -974,7 +1107,6 @@ class DoctorManager {
             }
         });
 
-        // Close on backdrop click
         document.getElementById('prescriptionModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 this.remove();
@@ -1021,8 +1153,6 @@ class DoctorManager {
 
                 if (error) {
                     console.error('Error creating medication schedule:', error);
-                } else {
-                    console.log(`✅ Created ${scheduleEntries.length} medication schedule entries`);
                 }
             }
 
@@ -1094,7 +1224,7 @@ class DoctorManager {
     }
 
     // =============================================
-    // VIEW PATIENT HISTORY
+    // VIEW PATIENT HISTORY - REAL DATA
     // =============================================
     async viewPatientHistory(patientId, patientName) {
         if (!patientId || patientId === 'undefined' || patientId === 'null') {
@@ -1102,7 +1232,6 @@ class DoctorManager {
             return;
         }
 
-        // Create modal directly
         const modalHtml = `
             <div id="historyModal" style="
                 position: fixed;
@@ -1157,10 +1286,8 @@ class DoctorManager {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        let records = [];
-
         try {
-            const { data, error } = await supabase
+            const { data: records, error } = await supabase
                 .from('medical_records')
                 .select(`
                     *,
@@ -1170,26 +1297,12 @@ class DoctorManager {
                 .eq('patient_id', patientId)
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error('Supabase error:', error);
-                records = this.getMockPatientHistory(patientId, patientName);
-            } else if (data && data.length > 0) {
-                records = data;
-            } else {
-                records = this.getMockPatientHistory(patientId, patientName);
-            }
-        } catch (error) {
-            console.error('Error fetching medical records:', error);
-            records = this.getMockPatientHistory(patientId, patientName);
-        }
-
-        // Update modal with records
-        const historyContent = document.getElementById('historyContent');
-        if (historyContent) {
-            let html = '';
+            const historyContent = document.getElementById('historyContent');
             
+            if (error) throw error;
+
             if (records && records.length > 0) {
-                html = records.map((record, index) => `
+                historyContent.innerHTML = records.map((record, index) => `
                     <div style="border:1px solid #E2E8F0;border-radius:12px;margin-bottom:16px;overflow:hidden;border-left:4px solid #2563EB;">
                         <div style="background:#F8FAFC;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
                             <div>
@@ -1225,8 +1338,10 @@ class DoctorManager {
                         </div>
                     </div>
                 `).join('');
+                historyContent.style.textAlign = 'left';
+                historyContent.style.padding = '0';
             } else {
-                html = `
+                historyContent.innerHTML = `
                     <div style="text-align:center;padding:40px;">
                         <div style="font-size:4rem;margin-bottom:16px;">📭</div>
                         <h5>No Medical Records Found</h5>
@@ -1239,9 +1354,13 @@ class DoctorManager {
                 `;
             }
 
-            historyContent.innerHTML = html;
-            historyContent.style.textAlign = 'left';
-            historyContent.style.padding = '0';
+        } catch (error) {
+            console.error('Error fetching medical records:', error);
+            document.getElementById('historyContent').innerHTML = `
+                <div class="alert alert-danger">
+                    ❌ Error loading medical records: ${error.message}
+                </div>
+            `;
         }
 
         document.getElementById('historyModal').addEventListener('click', function(e) {
@@ -1249,47 +1368,6 @@ class DoctorManager {
                 this.remove();
             }
         });
-    }
-
-    // =============================================
-    // GET MOCK PATIENT HISTORY
-    // =============================================
-    getMockPatientHistory(patientId, patientName) {
-        const mockRecords = [
-            {
-                id: 'm1',
-                doctor: { full_name: 'Dr. Sarah Wilson' },
-                created_at: new Date(Date.now() - 14 * 86400000).toISOString(),
-                soap_notes: 'Patient presented with hypertension. Blood pressure 145/90. Prescribed Lisinopril 10mg daily. Patient advised on lifestyle modifications including diet and exercise.',
-                prescriptions: [
-                    { medication: 'Lisinopril', dosage: '10mg', instructions: 'Take once daily in the morning with water' }
-                ]
-            },
-            {
-                id: 'm2',
-                doctor: { full_name: 'Dr. Sarah Wilson' },
-                created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-                soap_notes: 'Follow-up visit. Blood pressure improved to 130/85. Patient reports no side effects. Continue current medication. Recommended follow-up in 1 month.',
-                prescriptions: [
-                    { medication: 'Lisinopril', dosage: '10mg', instructions: 'Take once daily in the morning with water' }
-                ]
-            }
-        ];
-
-        if (patientId === 'p2') {
-            return [{
-                id: 'm4',
-                doctor: { full_name: 'Dr. Michael Chen' },
-                created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
-                soap_notes: 'Patient diagnosed with acne vulgaris. Prescribed topical benzoyl peroxide and oral antibiotics.',
-                prescriptions: [
-                    { medication: 'Benzoyl Peroxide', dosage: '5% gel', instructions: 'Apply once daily at bedtime' },
-                    { medication: 'Doxycycline', dosage: '100mg', instructions: 'Take twice daily with food' }
-                ]
-            }];
-        }
-
-        return mockRecords;
     }
 
     // =============================================
