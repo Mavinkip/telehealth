@@ -1,5 +1,5 @@
 /*
- * File: patient.js - Complete Patient Manager with Fixed Chat Navigation
+ * File: patient.js - Complete Patient Manager with FIXED Chat
  */
 
 class PatientManager {
@@ -114,7 +114,6 @@ class PatientManager {
     }
 
     attachEvents() {
-        // Safely attach events with null checks
         const navLinks = document.querySelectorAll('.nav-item[data-view]');
         if (navLinks.length > 0) {
             navLinks.forEach(link => {
@@ -252,6 +251,36 @@ class PatientManager {
             pageTitle.textContent = titleMap[view] || 'Dashboard';
         }
 
+        // Special handling for chat - call chat manager directly
+        if (view === 'chat') {
+            console.log('💬 Opening chat via chatManager...');
+            // Clear content and show chat
+            content.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Loading chat...</p>
+                </div>
+            `;
+            
+            // Call chat manager after a short delay
+            setTimeout(() => {
+                if (window.chatManager) {
+                    console.log('✅ Chat manager found, showing interface');
+                    window.chatManager.showChatInterface();
+                } else {
+                    console.error('❌ Chat manager not available');
+                    content.innerHTML = `
+                        <div class="alert alert-danger">
+                            ❌ Chat feature is not available. Please refresh and try again.
+                        </div>
+                    `;
+                }
+            }, 300);
+            return;
+        }
+
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -275,9 +304,6 @@ class PatientManager {
                 case 'medications':
                     await this.loadMedicationsContent(content);
                     break;
-                case 'chat':
-                    await this.loadChatContent(content);
-                    break;
                 case 'profile':
                     await this.loadProfileContent(content);
                     break;
@@ -296,78 +322,14 @@ class PatientManager {
     }
 
     // =============================================
-    // CHAT CONTENT - FIXED
+    // CHAT CONTENT - Now handled by chatManager directly
     // =============================================
-    async loadChatContent(container) {
-        console.log('💬 Loading chat content...');
-        
-        const userId = authManager.getUserId();
-        
-        // Get conversations
-        const { data: conversations } = await supabase
-            .from('messages')
-            .select(`
-                *,
-                sender:profiles!messages_sender_id_fkey (id, full_name, role),
-                receiver:profiles!messages_receiver_id_fkey (id, full_name, role)
-            `)
-            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-            .order('sent_at', { ascending: false });
-
-        const partnerMap = new Map();
-        if (conversations) {
-            conversations.forEach(msg => {
-                const partner = msg.sender_id === userId ? msg.receiver : msg.sender;
-                if (partner && !partnerMap.has(partner.id)) {
-                    partnerMap.set(partner.id, {
-                        ...partner,
-                        lastMessage: msg.content,
-                        lastMessageTime: msg.sent_at,
-                        unreadCount: msg.receiver_id === userId && !msg.read_at ? 1 : 0
-                    });
-                }
-            });
-        }
-        const chatPartners = Array.from(partnerMap.values());
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">💬 Messages</h5>
-                            <button class="btn btn-sm btn-primary" onclick="alert('📱 New message composer opened')">✏️ New</button>
-                        </div>
-                        <div class="card-body">
-                            ${chatPartners && chatPartners.length > 0
-                                ? chatPartners.map(partner => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom" onclick="patientManager.openChatWithUser('${partner.id}')" style="cursor:pointer;">
-                                        <div>
-                                            <strong>${partner.role === 'doctor' ? '👨‍⚕️' : '👤'} ${partner.full_name}</strong>
-                                            <p class="mb-0 small text-muted">${partner.lastMessage?.substring(0, 50) || 'No messages'}</p>
-                                        </div>
-                                        <div>
-                                            ${partner.unreadCount > 0 ? `<span class="badge bg-danger">${partner.unreadCount}</span>` : ''}
-                                            <small class="text-muted">${partner.lastMessageTime ? new Date(partner.lastMessageTime).toLocaleDateString() : ''}</small>
-                                        </div>
-                                    </div>
-                                `).join('')
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;">💬</div>
-                                    <p class="text-muted">No messages yet</p>
-                                    <p class="text-muted small">Start a conversation with your doctors.</p>
-                                </div>`
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
+    // This method is no longer needed for chat view
+    // but kept for compatibility if called directly
+    
     openChatWithUser(userId) {
+        console.log('💬 Opening chat with user:', userId);
         if (window.chatManager) {
-            // Pass the partner ID to chat manager
             window.chatManager.showChatInterface(null, userId);
         } else {
             alert('💬 Chat feature is being loaded. Please try again.');
