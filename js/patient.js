@@ -1,5 +1,5 @@
 /*
- * File: patient.js - Complete Patient Manager with Real Data
+ * File: patient.js - Complete Patient Manager with Fixed Chat Navigation
  */
 
 class PatientManager {
@@ -114,7 +114,6 @@ class PatientManager {
     }
 
     attachEvents() {
-        // Sidebar navigation
         document.querySelectorAll('.nav-item[data-view]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -132,7 +131,6 @@ class PatientManager {
             });
         });
 
-        // Sidebar toggle (desktop)
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -140,7 +138,6 @@ class PatientManager {
             });
         }
 
-        // Hamburger (mobile)
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', () => {
@@ -148,7 +145,6 @@ class PatientManager {
             });
         }
 
-        // Overlay (mobile)
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -156,7 +152,6 @@ class PatientManager {
             });
         }
 
-        // Logout buttons
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -177,7 +172,6 @@ class PatientManager {
             });
         }
 
-        // Notification button
         const notifBtn = document.getElementById('notificationBtn');
         if (notifBtn) {
             notifBtn.addEventListener('click', () => {
@@ -185,7 +179,6 @@ class PatientManager {
             });
         }
 
-        // Window resize
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
                 this.closeMobileSidebar();
@@ -299,12 +292,90 @@ class PatientManager {
     }
 
     // =============================================
-    // DASHBOARD CONTENT - REAL DATA
+    // CHAT CONTENT - FIXED (no routeBasedOnRole)
+    // =============================================
+    async loadChatContent(container) {
+        console.log('💬 Loading chat content...');
+        
+        const userId = authManager.getUserId();
+        
+        // Get conversations
+        const { data: conversations } = await supabase
+            .from('messages')
+            .select(`
+                *,
+                sender:profiles!messages_sender_id_fkey (id, full_name, role),
+                receiver:profiles!messages_receiver_id_fkey (id, full_name, role)
+            `)
+            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+            .order('sent_at', { ascending: false });
+
+        const partnerMap = new Map();
+        if (conversations) {
+            conversations.forEach(msg => {
+                const partner = msg.sender_id === userId ? msg.receiver : msg.sender;
+                if (partner && !partnerMap.has(partner.id)) {
+                    partnerMap.set(partner.id, {
+                        ...partner,
+                        lastMessage: msg.content,
+                        lastMessageTime: msg.sent_at,
+                        unreadCount: msg.receiver_id === userId && !msg.read_at ? 1 : 0
+                    });
+                }
+            });
+        }
+        const chatPartners = Array.from(partnerMap.values());
+
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">💬 Messages</h5>
+                            <button class="btn btn-sm btn-primary" onclick="alert('📱 New message composer opened')">✏️ New</button>
+                        </div>
+                        <div class="card-body">
+                            ${chatPartners && chatPartners.length > 0
+                                ? chatPartners.map(partner => `
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="patientManager.openChatWithUser('${partner.id}')" style="cursor:pointer;">
+                                        <div>
+                                            <strong>${partner.role === 'doctor' ? '👨‍⚕️' : '👤'} ${partner.full_name}</strong>
+                                            <p class="mb-0 small text-muted">${partner.lastMessage?.substring(0, 50) || 'No messages'}</p>
+                                        </div>
+                                        <div>
+                                            ${partner.unreadCount > 0 ? `<span class="badge bg-danger">${partner.unreadCount}</span>` : ''}
+                                            <small class="text-muted">${partner.lastMessageTime ? new Date(partner.lastMessageTime).toLocaleDateString() : ''}</small>
+                                        </div>
+                                    </div>
+                                `).join('')
+                                : `<div class="text-center py-4">
+                                    <div style="font-size:3rem;margin-bottom:12px;">💬</div>
+                                    <p class="text-muted">No messages yet</p>
+                                    <p class="text-muted small">Start a conversation with your doctors.</p>
+                                </div>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    openChatWithUser(userId) {
+        if (window.chatManager) {
+            // Pass the partner ID to chat manager
+            window.chatManager.showChatInterface(null, userId);
+        } else {
+            alert('💬 Chat feature is being loaded. Please try again.');
+        }
+    }
+
+    // =============================================
+    // DASHBOARD CONTENT
     // =============================================
     async loadDashboardContent(container) {
         const userId = authManager.getUserId();
         
-        // Get upcoming appointments
         const { data: upcomingAppointments } = await supabase
             .from('appointments')
             .select(`
@@ -317,7 +388,6 @@ class PatientManager {
             .order('scheduled_at', { ascending: true })
             .limit(5);
 
-        // Get today's medications
         const today = new Date().toISOString().split('T')[0];
         const { data: todaysMeds } = await supabase
             .from('medication_schedule')
@@ -328,10 +398,8 @@ class PatientManager {
             .order('scheduled_time', { ascending: true })
             .limit(10);
 
-        // Get doctors count
         await this.refreshDoctors();
 
-        // Get unread messages
         const { count: unreadCount } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
@@ -346,21 +414,20 @@ class PatientManager {
                 </div>
             </div>
 
-            <!-- CLICKABLE STATS CARDS -->
             <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Upcoming</div>
                     <div class="stat-value accent">${upcomingAppointments?.length || 0}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('medications')">
+                <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
                     <div class="stat-label">💊 Today's Meds</div>
                     <div class="stat-value warning">${todaysMeds?.length || 0}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('doctors')">
+                <div class="stat-card" onclick="patientManager.loadView('doctors')" style="cursor:pointer;">
                     <div class="stat-label">👨‍⚕️ Doctors</div>
                     <div class="stat-value success">${this.availableDoctors.length}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('chat')">
+                <div class="stat-card" onclick="patientManager.loadView('chat')" style="cursor:pointer;">
                     <div class="stat-label">💬 Messages</div>
                     <div class="stat-value danger">${unreadCount || 0}</div>
                 </div>
@@ -369,7 +436,7 @@ class PatientManager {
             ${todaysMeds && todaysMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
-                        <div class="card border-success clickable" onclick="patientManager.loadView('medications')">
+                        <div class="card border-success clickable" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
                             <div class="card-header bg-success text-white">
                                 <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
                                 <span class="badge bg-light text-dark">${todaysMeds.length} pending</span>
@@ -394,7 +461,7 @@ class PatientManager {
 
             <div class="row mt-4">
                 <div class="col-12">
-                    <div class="card clickable" onclick="patientManager.loadView('appointments')">
+                    <div class="card clickable" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
                         <div class="card-header">
                             <h5 class="card-title">📅 Upcoming Appointments</h5>
                             <span class="badge bg-primary">${upcomingAppointments?.length || 0}</span>
@@ -435,7 +502,7 @@ class PatientManager {
     }
 
     // =============================================
-    // APPOINTMENTS CONTENT - REAL DATA
+    // APPOINTMENTS CONTENT
     // =============================================
     async loadAppointmentsContent(container) {
         const userId = authManager.getUserId();
@@ -466,15 +533,15 @@ class PatientManager {
             </div>
 
             <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Today</div>
                     <div class="stat-value accent">${today.length}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📅 Upcoming</div>
                     <div class="stat-value success">${upcoming.length}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('appointments')">
+                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
                     <div class="stat-label">📋 Past</div>
                     <div class="stat-value">${past.length}</div>
                 </div>
@@ -556,7 +623,7 @@ class PatientManager {
     }
 
     // =============================================
-    // DOCTORS CONTENT - REAL DATA
+    // DOCTORS CONTENT
     // =============================================
     async loadDoctorsContent(container) {
         await this.refreshDoctors();
@@ -570,11 +637,11 @@ class PatientManager {
             </div>
 
             <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('doctors')">
+                <div class="stat-card" onclick="patientManager.loadView('doctors')" style="cursor:pointer;">
                     <div class="stat-label">👨‍⚕️ Available</div>
                     <div class="stat-value success">${this.availableDoctors.length}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.showBookingModal()">
+                <div class="stat-card" onclick="patientManager.showBookingModal()" style="cursor:pointer;">
                     <div class="stat-label">➕ Book Now</div>
                     <div class="stat-value accent">+</div>
                 </div>
@@ -605,7 +672,7 @@ class PatientManager {
     }
 
     // =============================================
-    // MEDICATIONS CONTENT - REAL DATA
+    // MEDICATIONS CONTENT
     // =============================================
     async loadMedicationsContent(container) {
         const userId = authManager.getUserId();
@@ -641,11 +708,11 @@ class PatientManager {
             </div>
 
             <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('medications')">
+                <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
                     <div class="stat-label">💊 Prescriptions</div>
                     <div class="stat-value success">${prescriptions?.length || 0}</div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('medications')">
+                <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
                     <div class="stat-label">⏰ Today's Meds</div>
                     <div class="stat-value warning">${upcomingMeds.length}</div>
                 </div>
@@ -760,82 +827,7 @@ class PatientManager {
     }
 
     // =============================================
-    // CHAT CONTENT - REAL DATA
-    // =============================================
-    async loadChatContent(container) {
-        const userId = authManager.getUserId();
-        
-        const { data: conversations } = await supabase
-            .from('messages')
-            .select(`
-                *,
-                sender:profiles!messages_sender_id_fkey (id, full_name, role),
-                receiver:profiles!messages_receiver_id_fkey (id, full_name, role)
-            `)
-            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-            .order('sent_at', { ascending: false });
-
-        const partnerMap = new Map();
-        if (conversations) {
-            conversations.forEach(msg => {
-                const partner = msg.sender_id === userId ? msg.receiver : msg.sender;
-                if (partner && !partnerMap.has(partner.id)) {
-                    partnerMap.set(partner.id, {
-                        ...partner,
-                        lastMessage: msg.content,
-                        lastMessageTime: msg.sent_at,
-                        unreadCount: msg.receiver_id === userId && !msg.read_at ? 1 : 0
-                    });
-                }
-            });
-        }
-        const chatPartners = Array.from(partnerMap.values());
-
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">💬 Messages</h5>
-                            <button class="btn btn-sm btn-primary" onclick="alert('📱 New message composer opened')">✏️ New</button>
-                        </div>
-                        <div class="card-body">
-                            ${chatPartners && chatPartners.length > 0
-                                ? chatPartners.map(partner => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="patientManager.openChatWithUser('${partner.id}')">
-                                        <div>
-                                            <strong>${partner.role === 'doctor' ? '👨‍⚕️' : '👤'} ${partner.full_name}</strong>
-                                            <p class="mb-0 small text-muted">${partner.lastMessage?.substring(0, 50) || 'No messages'}</p>
-                                        </div>
-                                        <div>
-                                            ${partner.unreadCount > 0 ? `<span class="badge bg-danger">${partner.unreadCount}</span>` : ''}
-                                            <small class="text-muted">${partner.lastMessageTime ? new Date(partner.lastMessageTime).toLocaleDateString() : ''}</small>
-                                        </div>
-                                    </div>
-                                `).join('')
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;">💬</div>
-                                    <p class="text-muted">No messages yet</p>
-                                    <p class="text-muted small">Start a conversation with your doctors.</p>
-                                </div>`
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    openChatWithUser(userId) {
-        if (window.chatManager) {
-            window.chatManager.showChatInterface(null, userId);
-        } else {
-            alert('💬 Chat feature is being loaded. Please try again.');
-        }
-    }
-
-    // =============================================
-    // PROFILE CONTENT - REAL DATA
+    // PROFILE CONTENT
     // =============================================
     async loadProfileContent(container) {
         const profile = authManager.getUserProfile();
@@ -937,7 +929,7 @@ class PatientManager {
     }
 
     // =============================================
-    // REFRESH DOCTORS - REAL DATA
+    // REFRESH DOCTORS
     // =============================================
     async refreshDoctors() {
         try {
@@ -962,7 +954,7 @@ class PatientManager {
     }
 
     // =============================================
-    // BOOK APPOINTMENT - REAL DATA
+    // BOOK APPOINTMENT
     // =============================================
     async bookAppointment(doctorId, consultationType, scheduledAt, notes, fee) {
         try {
