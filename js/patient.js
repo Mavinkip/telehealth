@@ -7,14 +7,36 @@ class PatientManager {
         this.currentView = 'dashboard';
         this.isSidebarOpen = true;
         this.availableDoctors = [];
+        this.chatManager = null;
+    }
+
+    // Add this method to get chat manager
+    getChatManager() {
+        if (!this.chatManager) {
+            // Check if chatManager exists globally
+            if (window.chatManager) {
+                this.chatManager = window.chatManager;
+            } else {
+                console.warn('⚠️ Chat manager not initialized yet');
+                // Initialize it if needed
+                window.chatManager = new ChatManager();
+                this.chatManager = window.chatManager;
+            }
+        }
+        return this.chatManager;
     }
 
     showDashboard() {
         const app = document.getElementById('app');
-        const profile = authManager.getUserProfile();
+        const profile = authManager ? authManager.getUserProfile() : null;
         
         if (!profile) {
-            authManager.showLoginPage();
+            if (authManager) {
+                authManager.showLoginPage();
+            } else {
+                console.error('❌ Auth manager not initialized');
+                app.innerHTML = '<div class="alert alert-danger">Please refresh the page and try again.</div>';
+            }
             return;
         }
 
@@ -92,7 +114,7 @@ class PatientManager {
                             <div class="user-profile">
                                 <div class="avatar" style="background: #10B981;">${profile.full_name?.charAt(0) || 'U'}</div>
                                 <div class="user-info">
-                                    <span class="name">${profile.full_name}</span>
+                                    <span class="name">${profile.full_name || 'User'}</span>
                                     <span class="role">Patient</span>
                                 </div>
                             </div>
@@ -114,26 +136,26 @@ class PatientManager {
     }
 
     attachEvents() {
+        // Navigation links
         const navLinks = document.querySelectorAll('.nav-item[data-view]');
-        if (navLinks.length > 0) {
-            navLinks.forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const view = link.dataset.view;
-                    console.log('📱 Navigating to:', view);
-                    
-                    document.querySelectorAll('.nav-item[data-view]').forEach(l => {
-                        l.classList.remove('active');
-                    });
-                    link.classList.add('active');
-                    
-                    this.loadView(view);
-                    this.closeMobileSidebar();
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const view = link.dataset.view;
+                console.log('📱 Navigating to:', view);
+                
+                document.querySelectorAll('.nav-item[data-view]').forEach(l => {
+                    l.classList.remove('active');
                 });
+                link.classList.add('active');
+                
+                this.loadView(view);
+                this.closeMobileSidebar();
             });
-        }
+        });
 
+        // Sidebar toggle
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -141,6 +163,7 @@ class PatientManager {
             });
         }
 
+        // Hamburger menu
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', () => {
@@ -148,6 +171,7 @@ class PatientManager {
             });
         }
 
+        // Overlay
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -155,12 +179,15 @@ class PatientManager {
             });
         }
 
+        // Logout buttons
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
-                const result = await authManager.logout();
-                if (result.success) {
-                    window.location.reload();
+                if (authManager) {
+                    const result = await authManager.logout();
+                    if (result.success) {
+                        window.location.reload();
+                    }
                 }
             });
         }
@@ -168,13 +195,16 @@ class PatientManager {
         const logoutBtnHeader = document.getElementById('logoutBtnHeader');
         if (logoutBtnHeader) {
             logoutBtnHeader.addEventListener('click', async () => {
-                const result = await authManager.logout();
-                if (result.success) {
-                    window.location.reload();
+                if (authManager) {
+                    const result = await authManager.logout();
+                    if (result.success) {
+                        window.location.reload();
+                    }
                 }
             });
         }
 
+        // Notification button
         const notifBtn = document.getElementById('notificationBtn');
         if (notifBtn) {
             notifBtn.addEventListener('click', () => {
@@ -182,6 +212,7 @@ class PatientManager {
             });
         }
 
+        // Resize handler
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
                 this.closeMobileSidebar();
@@ -195,8 +226,8 @@ class PatientManager {
         
         if (window.innerWidth > 992) {
             this.isSidebarOpen = !this.isSidebarOpen;
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
+            if (sidebar) sidebar.classList.toggle('collapsed');
+            if (mainContent) mainContent.classList.toggle('expanded');
             
             const icon = document.getElementById('sidebarToggle')?.querySelector('i');
             if (icon) {
@@ -209,24 +240,16 @@ class PatientManager {
         const sidebar = document.getElementById('patientSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
-        if (sidebar) {
-            sidebar.classList.toggle('open');
-        }
-        if (overlay) {
-            overlay.classList.toggle('active');
-        }
+        if (sidebar) sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
     }
 
     closeMobileSidebar() {
         const sidebar = document.getElementById('patientSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
-        if (sidebar) {
-            sidebar.classList.remove('open');
-        }
-        if (overlay) {
-            overlay.classList.remove('active');
-        }
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
     }
 
     async loadView(view) {
@@ -251,10 +274,9 @@ class PatientManager {
             pageTitle.textContent = titleMap[view] || 'Dashboard';
         }
 
-        // Special handling for chat - call chat manager directly
+        // Special handling for chat
         if (view === 'chat') {
             console.log('💬 Opening chat via chatManager...');
-            // Clear content and show chat
             content.innerHTML = `
                 <div class="text-center py-5">
                     <div class="spinner-border text-primary" role="status">
@@ -264,11 +286,13 @@ class PatientManager {
                 </div>
             `;
             
-            // Call chat manager after a short delay
+            // Initialize chat manager if needed
+            const chatManager = this.getChatManager();
+            
             setTimeout(() => {
-                if (window.chatManager) {
+                if (chatManager) {
                     console.log('✅ Chat manager found, showing interface');
-                    window.chatManager.showChatInterface();
+                    chatManager.showChatInterface();
                 } else {
                     console.error('❌ Chat manager not available');
                     content.innerHTML = `
@@ -281,6 +305,7 @@ class PatientManager {
             return;
         }
 
+        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -322,270 +347,309 @@ class PatientManager {
     }
 
     // =============================================
-    // CHAT CONTENT - Now handled by chatManager directly
-    // =============================================
-    // This method is no longer needed for chat view
-    // but kept for compatibility if called directly
-    
-    openChatWithUser(userId) {
-        console.log('💬 Opening chat with user:', userId);
-        if (window.chatManager) {
-            window.chatManager.showChatInterface(null, userId);
-        } else {
-            alert('💬 Chat feature is being loaded. Please try again.');
-        }
-    }
-
-    // =============================================
     // DASHBOARD CONTENT
     // =============================================
     async loadDashboardContent(container) {
-        const userId = authManager.getUserId();
+        if (!authManager) {
+            container.innerHTML = '<div class="alert alert-danger">Authentication not available</div>';
+            return;
+        }
         
-        const { data: upcomingAppointments } = await supabase
-            .from('appointments')
-            .select(`
-                *,
-                doctor:profiles!appointments_doctor_id_fkey (id, full_name, specialty)
-            `)
-            .eq('patient_id', userId)
-            .eq('status', 'scheduled')
-            .gte('scheduled_at', new Date().toISOString())
-            .order('scheduled_at', { ascending: true })
-            .limit(5);
+        const userId = authManager.getUserId();
+        if (!userId) {
+            container.innerHTML = '<div class="alert alert-warning">Please log in to view your dashboard</div>';
+            return;
+        }
+        
+        try {
+            // Get upcoming appointments
+            const { data: upcomingAppointments, error: aptError } = await supabase
+                .from('appointments')
+                .select(`
+                    *,
+                    doctor:profiles!appointments_doctor_id_fkey (id, full_name, specialty)
+                `)
+                .eq('patient_id', userId)
+                .eq('status', 'scheduled')
+                .gte('scheduled_at', new Date().toISOString())
+                .order('scheduled_at', { ascending: true })
+                .limit(5);
 
-        const today = new Date().toISOString().split('T')[0];
-        const { data: todaysMeds } = await supabase
-            .from('medication_schedule')
-            .select('*')
-            .eq('patient_id', userId)
-            .eq('taken', false)
-            .gte('scheduled_time', new Date().toISOString())
-            .order('scheduled_time', { ascending: true })
-            .limit(10);
+            if (aptError) console.error('Error fetching appointments:', aptError);
 
-        await this.refreshDoctors();
+            // Get today's medications
+            const { data: todaysMeds, error: medError } = await supabase
+                .from('medication_schedule')
+                .select('*')
+                .eq('patient_id', userId)
+                .eq('taken', false)
+                .gte('scheduled_time', new Date().toISOString())
+                .order('scheduled_time', { ascending: true })
+                .limit(10);
 
-        const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('receiver_id', userId)
-            .is('read_at', null);
+            if (medError) console.error('Error fetching medications:', medError);
 
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>🏥 Patient Dashboard</h2>
-                    <p class="text-muted">Welcome to your telehealth portal</p>
-                </div>
-            </div>
+            await this.refreshDoctors();
 
-            <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
-                    <div class="stat-label">📅 Upcoming</div>
-                    <div class="stat-value accent">${upcomingAppointments?.length || 0}</div>
-                </div>
-                <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
-                    <div class="stat-label">💊 Today's Meds</div>
-                    <div class="stat-value warning">${todaysMeds?.length || 0}</div>
-                </div>
-                <div class="stat-card" onclick="patientManager.loadView('doctors')" style="cursor:pointer;">
-                    <div class="stat-label">👨‍⚕️ Doctors</div>
-                    <div class="stat-value success">${this.availableDoctors.length}</div>
-                </div>
-                <div class="stat-card" onclick="patientManager.loadView('chat')" style="cursor:pointer;">
-                    <div class="stat-label">💬 Messages</div>
-                    <div class="stat-value danger">${unreadCount || 0}</div>
-                </div>
-            </div>
+            // Get unread messages count
+            let unreadCount = 0;
+            try {
+                const { count, error: msgError } = await supabase
+                    .from('messages')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('receiver_id', userId)
+                    .is('read_at', null);
+                    
+                if (!msgError) unreadCount = count || 0;
+            } catch (e) {
+                console.error('Error fetching message count:', e);
+            }
 
-            ${todaysMeds && todaysMeds.length > 0 ? `
-                <div class="row mt-3">
+            container.innerHTML = `
+                <div class="row">
                     <div class="col-12">
-                        <div class="card border-success" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
-                                <span class="badge bg-light text-dark">${todaysMeds.length} pending</span>
+                        <h2>🏥 Patient Dashboard</h2>
+                        <p class="text-muted">Welcome to your telehealth portal</p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
+                        <div class="stat-label">📅 Upcoming</div>
+                        <div class="stat-value accent">${upcomingAppointments?.length || 0}</div>
+                    </div>
+                    <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
+                        <div class="stat-label">💊 Today's Meds</div>
+                        <div class="stat-value warning">${todaysMeds?.length || 0}</div>
+                    </div>
+                    <div class="stat-card" onclick="patientManager.loadView('doctors')" style="cursor:pointer;">
+                        <div class="stat-label">👨‍⚕️ Doctors</div>
+                        <div class="stat-value success">${this.availableDoctors?.length || 0}</div>
+                    </div>
+                    <div class="stat-card" onclick="patientManager.loadView('chat')" style="cursor:pointer;">
+                        <div class="stat-label">💬 Messages</div>
+                        <div class="stat-value danger">${unreadCount || 0}</div>
+                    </div>
+                </div>
+
+                ${todaysMeds && todaysMeds.length > 0 ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card border-success" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
+                                    <span class="badge bg-light text-dark">${todaysMeds.length} pending</span>
+                                </div>
+                                <div class="card-body">
+                                    ${todaysMeds.map(med => `
+                                        <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                            <div>
+                                                <strong>💊 ${med.medication || 'Unknown'}</strong>
+                                                <br><small>${med.dosage || ''} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
+                            <div class="card-header">
+                                <h5 class="card-title">📅 Upcoming Appointments</h5>
+                                <span class="badge bg-primary">${upcomingAppointments?.length || 0}</span>
                             </div>
                             <div class="card-body">
-                                ${todaysMeds.map(med => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                                        <div>
-                                            <strong>💊 ${med.medication}</strong>
-                                            <br><small>${med.dosage} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                ${upcomingAppointments && upcomingAppointments.length > 0 
+                                    ? upcomingAppointments.map(apt => `
+                                        <div class="p-2 mb-2 bg-light rounded d-flex justify-content-between align-items-center flex-wrap">
+                                            <div>
+                                                <h6 class="mb-0">👨‍⚕️ Dr. ${apt.doctor?.full_name || 'Unknown'}</h6>
+                                                <p class="mb-0 small">⏰ ${new Date(apt.scheduled_at).toLocaleString()}</p>
+                                                <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
+                                                    ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type || 'video'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                ${apt.consultation_type === 'video' && apt.jitsi_room_id ? `
+                                                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor?.full_name || 'Doctor'}')">
+                                                        🎥 Join
+                                                    </button>
+                                                ` : apt.consultation_type === 'physical' ? `
+                                                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); alert('📍 Physical consultation at clinic.')">
+                                                        📍 Location
+                                                    </button>
+                                                ` : ''}
+                                                <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); patientManager.loadView('appointments')">📅 View</button>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                                    `).join('')
+                                    : '<p class="text-muted text-center py-3">No upcoming appointments</p>'
+                                }
+                                <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">📅 View All Appointments</button>
                             </div>
                         </div>
                     </div>
                 </div>
-            ` : ''}
-
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
-                        <div class="card-header">
-                            <h5 class="card-title">📅 Upcoming Appointments</h5>
-                            <span class="badge bg-primary">${upcomingAppointments?.length || 0}</span>
-                        </div>
-                        <div class="card-body">
-                            ${upcomingAppointments && upcomingAppointments.length > 0 
-                                ? upcomingAppointments.map(apt => `
-                                    <div class="p-2 mb-2 bg-light rounded d-flex justify-content-between align-items-center flex-wrap">
-                                        <div>
-                                            <h6 class="mb-0">👨‍⚕️ Dr. ${apt.doctor?.full_name || 'Unknown'}</h6>
-                                            <p class="mb-0 small">⏰ ${new Date(apt.scheduled_at).toLocaleString()}</p>
-                                            <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
-                                                ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type || 'video'}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            ${apt.consultation_type === 'video' ? `
-                                                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor?.full_name || 'Doctor'}')">
-                                                    🎥 Join
-                                                </button>
-                                            ` : `
-                                                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); alert('📍 Physical consultation at clinic.')">
-                                                    📍 Location
-                                                </button>
-                                            `}
-                                            <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); patientManager.loadView('appointments')">📅 View</button>
-                                        </div>
-                                    </div>
-                                `).join('')
-                                : '<p class="text-muted text-center py-3">No upcoming appointments</p>'
-                            }
-                            <button class="btn btn-primary mt-2 w-100" onclick="patientManager.loadView('appointments')">📅 View All Appointments</button>
-                        </div>
-                    </div>
+            `;
+        } catch (error) {
+            console.error('❌ Error loading dashboard:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading dashboard: ${error.message}
                 </div>
-            </div>
-        `;
+            `;
+        }
     }
 
     // =============================================
     // APPOINTMENTS CONTENT
     // =============================================
     async loadAppointmentsContent(container) {
-        const userId = authManager.getUserId();
+        if (!authManager) {
+            container.innerHTML = '<div class="alert alert-danger">Authentication not available</div>';
+            return;
+        }
         
-        const { data: appointments } = await supabase
-            .from('appointments')
-            .select(`
-                *,
-                doctor:profiles!appointments_doctor_id_fkey (id, full_name, specialty)
-            `)
-            .eq('patient_id', userId)
-            .order('scheduled_at', { ascending: false });
+        const userId = authManager.getUserId();
+        if (!userId) {
+            container.innerHTML = '<div class="alert alert-warning">Please log in to view appointments</div>';
+            return;
+        }
+        
+        try {
+            const { data: appointments, error } = await supabase
+                .from('appointments')
+                .select(`
+                    *,
+                    doctor:profiles!appointments_doctor_id_fkey (id, full_name, specialty)
+                `)
+                .eq('patient_id', userId)
+                .order('scheduled_at', { ascending: false });
 
-        const now = new Date();
-        const today = appointments?.filter(a => {
-            const date = new Date(a.scheduled_at);
-            return date.toDateString() === now.toDateString() && a.status === 'scheduled';
-        }) || [];
-        const upcoming = appointments?.filter(a => new Date(a.scheduled_at) > now && a.status === 'scheduled') || [];
-        const past = appointments?.filter(a => new Date(a.scheduled_at) < now && a.status !== 'scheduled') || [];
+            if (error) {
+                console.error('Error fetching appointments:', error);
+                throw error;
+            }
 
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>📅 My Appointments</h2>
-                    <button class="btn btn-primary mb-3" onclick="patientManager.showBookingModal()">➕ Book New</button>
-                </div>
-            </div>
+            const now = new Date();
+            const today = appointments?.filter(a => {
+                const date = new Date(a.scheduled_at);
+                return date.toDateString() === now.toDateString() && a.status === 'scheduled';
+            }) || [];
+            const upcoming = appointments?.filter(a => new Date(a.scheduled_at) > now && a.status === 'scheduled') || [];
+            const past = appointments?.filter(a => new Date(a.scheduled_at) < now && a.status !== 'scheduled') || [];
 
-            <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
-                    <div class="stat-label">📅 Today</div>
-                    <div class="stat-value accent">${today.length}</div>
+            container.innerHTML = `
+                <div class="row">
+                    <div class="col-12">
+                        <h2>📅 My Appointments</h2>
+                        <button class="btn btn-primary mb-3" onclick="patientManager.showBookingModal()">➕ Book New</button>
+                    </div>
                 </div>
-                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
-                    <div class="stat-label">📅 Upcoming</div>
-                    <div class="stat-value success">${upcoming.length}</div>
-                </div>
-                <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
-                    <div class="stat-label">📋 Past</div>
-                    <div class="stat-value">${past.length}</div>
-                </div>
-            </div>
 
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">All Appointments</h5>
-                            <span class="badge bg-primary">${appointments?.length || 0}</span>
-                        </div>
-                        <div class="card-body">
-                            ${appointments && appointments.length > 0
-                                ? `<div class="table-wrap">
-                                    <table class="table">
-                                        <thead>
-                                            <tr>
-                                                <th>👨‍⚕️ Doctor</th>
-                                                <th>⚙️ Type</th>
-                                                <th>📅 Date</th>
-                                                <th>ℹ️ Status</th>
-                                                <th>💳 Payment</th>
-                                                <th>⚡ Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${appointments.map(apt => `
+                <div class="stats-grid">
+                    <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
+                        <div class="stat-label">📅 Today</div>
+                        <div class="stat-value accent">${today.length}</div>
+                    </div>
+                    <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
+                        <div class="stat-label">📅 Upcoming</div>
+                        <div class="stat-value success">${upcoming.length}</div>
+                    </div>
+                    <div class="stat-card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
+                        <div class="stat-label">📋 Past</div>
+                        <div class="stat-value">${past.length}</div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">All Appointments</h5>
+                                <span class="badge bg-primary">${appointments?.length || 0}</span>
+                            </div>
+                            <div class="card-body">
+                                ${appointments && appointments.length > 0
+                                    ? `<div class="table-wrap">
+                                        <table class="table">
+                                            <thead>
                                                 <tr>
-                                                    <td><strong>Dr. ${apt.doctor?.full_name || 'Unknown'}</strong><br><small>${apt.doctor?.specialty || ''}</small></td>
-                                                    <td>
-                                                        <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
-                                                            ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type || 'video'}
-                                                        </span>
-                                                        ${apt.is_follow_up ? '<span class="badge bg-info">🔄 Follow-up</span>' : ''}
-                                                    </td>
-                                                    <td><small>⏰ ${new Date(apt.scheduled_at).toLocaleString()}</small></td>
-                                                    <td>
-                                                        <span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">
-                                                            ${apt.status}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        ${apt.payment_status === 'paid' 
-                                                            ? '<span class="badge bg-success">✅ Paid</span>' 
-                                                            : apt.payment_status === 'pending' && apt.status === 'completed'
-                                                            ? '<span class="badge bg-warning">⏳ Due</span>'
-                                                            : '<span class="badge bg-secondary">-</span>'
-                                                        }
-                                                        ${apt.amount_paid ? `<br><small>KES ${apt.amount_paid}</small>` : ''}
-                                                    </td>
-                                                    <td>
-                                                        ${apt.status === 'scheduled' ? `
-                                                            ${apt.consultation_type === 'video' ? `
-                                                                <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor?.full_name || 'Doctor'}')">🎥 Join</button>
-                                                            ` : `
-                                                                <button class="btn btn-sm btn-success mb-1 w-100" onclick="alert('📍 Physical consultation at clinic.')">📍 Location</button>
-                                                            `}
-                                                            <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('${apt.id}')">❌ Cancel</button>
-                                                        ` : apt.status === 'completed' && apt.payment_status === 'pending' ? `
-                                                            <button class="btn btn-sm btn-warning w-100" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">💳 Pay Now</button>
-                                                        ` : apt.status === 'completed' ? '<span class="text-success">✅ Done</span>' : '<span class="text-muted">-</span>'}
-                                                    </td>
+                                                    <th>👨‍⚕️ Doctor</th>
+                                                    <th>⚙️ Type</th>
+                                                    <th>📅 Date</th>
+                                                    <th>ℹ️ Status</th>
+                                                    <th>💳 Payment</th>
+                                                    <th>⚡ Actions</th>
                                                 </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>`
-                                : `<div class="text-center py-4">
-                                    <div style="font-size:3rem;margin-bottom:12px;">📭</div>
-                                    <p class="text-muted">No appointments found</p>
-                                </div>`
-                            }
+                                            </thead>
+                                            <tbody>
+                                                ${appointments.map(apt => `
+                                                    <tr>
+                                                        <td><strong>Dr. ${apt.doctor?.full_name || 'Unknown'}</strong><br><small>${apt.doctor?.specialty || ''}</small></td>
+                                                        <td>
+                                                            <span class="badge ${apt.consultation_type === 'video' ? 'bg-primary' : 'bg-warning'}">
+                                                                ${apt.consultation_type === 'video' ? '🎥' : '🏥'} ${apt.consultation_type || 'video'}
+                                                            </span>
+                                                            ${apt.is_follow_up ? '<span class="badge bg-info">🔄 Follow-up</span>' : ''}
+                                                        </td>
+                                                        <td><small>⏰ ${new Date(apt.scheduled_at).toLocaleString()}</small></td>
+                                                        <td>
+                                                            <span class="badge ${apt.status === 'scheduled' ? 'bg-success' : apt.status === 'completed' ? 'bg-secondary' : 'bg-danger'}">
+                                                                ${apt.status || 'Unknown'}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            ${apt.payment_status === 'paid' 
+                                                                ? '<span class="badge bg-success">✅ Paid</span>' 
+                                                                : apt.payment_status === 'pending' && apt.status === 'completed'
+                                                                ? '<span class="badge bg-warning">⏳ Due</span>'
+                                                                : '<span class="badge bg-secondary">-</span>'
+                                                            }
+                                                            ${apt.amount_paid ? `<br><small>KES ${apt.amount_paid}</small>` : ''}
+                                                        </td>
+                                                        <td>
+                                                            ${apt.status === 'scheduled' ? `
+                                                                ${apt.consultation_type === 'video' && apt.jitsi_room_id ? `
+                                                                    <button class="btn btn-sm btn-primary mb-1 w-100" onclick="patientManager.joinVideoCall('${apt.id}', '${apt.jitsi_room_id}', '${apt.doctor?.full_name || 'Doctor'}')">🎥 Join</button>
+                                                                ` : apt.consultation_type === 'physical' ? `
+                                                                    <button class="btn btn-sm btn-success mb-1 w-100" onclick="alert('📍 Physical consultation at clinic.')">📍 Location</button>
+                                                                ` : ''}
+                                                                <button class="btn btn-sm btn-danger w-100" onclick="patientManager.cancelAppointment('${apt.id}')">❌ Cancel</button>
+                                                            ` : apt.status === 'completed' && apt.payment_status === 'pending' ? `
+                                                                <button class="btn btn-sm btn-warning w-100" onclick="patientManager.payForAppointment('${apt.id}', ${apt.amount_paid || 300})">💳 Pay Now</button>
+                                                            ` : apt.status === 'completed' ? '<span class="text-success">✅ Done</span>' : '<span class="text-muted">-</span>'}
+                                                        </td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>`
+                                    : `<div class="text-center py-4">
+                                        <div style="font-size:3rem;margin-bottom:12px;">📭</div>
+                                        <p class="text-muted">No appointments found</p>
+                                    </div>`
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        } catch (error) {
+            console.error('❌ Error loading appointments:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading appointments: ${error.message}
+                </div>
+            `;
+        }
     }
 
     // =============================================
@@ -605,7 +669,7 @@ class PatientManager {
             <div class="stats-grid">
                 <div class="stat-card" onclick="patientManager.loadView('doctors')" style="cursor:pointer;">
                     <div class="stat-label">👨‍⚕️ Available</div>
-                    <div class="stat-value success">${this.availableDoctors.length}</div>
+                    <div class="stat-value success">${this.availableDoctors?.length || 0}</div>
                 </div>
                 <div class="stat-card" onclick="patientManager.showBookingModal()" style="cursor:pointer;">
                     <div class="stat-label">➕ Book Now</div>
@@ -620,9 +684,9 @@ class PatientManager {
                             <div class="card h-100">
                                 <div class="card-body text-center">
                                     <div style="font-size: 4rem; margin-bottom: 12px;">👨‍⚕️</div>
-                                    <h5 class="card-title">Dr. ${doc.full_name}</h5>
+                                    <h5 class="card-title">Dr. ${doc.full_name || 'Unknown'}</h5>
                                     <p class="card-text"><span class="badge bg-primary">${doc.specialty || 'General Practice'}</span></p>
-                                    <p class="card-text"><small>📧 ${doc.email}</small></p>
+                                    <p class="card-text"><small>📧 ${doc.email || ''}</small></p>
                                     <p class="card-text"><small>📱 ${doc.phone || 'No phone'}</small></p>
                                     <button class="btn btn-primary w-100" onclick="patientManager.showBookingModal('${doc.id}', '${doc.full_name}')">
                                         📅 Book Appointment
@@ -641,162 +705,193 @@ class PatientManager {
     // MEDICATIONS CONTENT
     // =============================================
     async loadMedicationsContent(container) {
+        if (!authManager) {
+            container.innerHTML = '<div class="alert alert-danger">Authentication not available</div>';
+            return;
+        }
+        
         const userId = authManager.getUserId();
+        if (!userId) {
+            container.innerHTML = '<div class="alert alert-warning">Please log in to view medications</div>';
+            return;
+        }
         
-        const { data: prescriptions } = await supabase
-            .from('prescriptions')
-            .select(`
-                *,
-                doctor:profiles!prescriptions_doctor_id_fkey (full_name, specialty)
-            `)
-            .eq('patient_id', userId)
-            .order('issued_at', { ascending: false });
+        try {
+            const { data: prescriptions, error: rxError } = await supabase
+                .from('prescriptions')
+                .select(`
+                    *,
+                    doctor:profiles!prescriptions_doctor_id_fkey (full_name, specialty)
+                `)
+                .eq('patient_id', userId)
+                .order('issued_at', { ascending: false });
 
-        const { data: medicationSchedule } = await supabase
-            .from('medication_schedule')
-            .select('*')
-            .eq('patient_id', userId)
-            .order('scheduled_time', { ascending: true });
+            if (rxError) console.error('Error fetching prescriptions:', rxError);
 
-        const today = new Date().toISOString().split('T')[0];
-        const upcomingMeds = medicationSchedule?.filter(m => 
-            !m.taken && new Date(m.scheduled_time).toISOString().split('T')[0] === today
-        ) || [];
-        
-        const allUpcomingMeds = medicationSchedule?.filter(m => !m.taken) || [];
+            const { data: medicationSchedule, error: medError } = await supabase
+                .from('medication_schedule')
+                .select('*')
+                .eq('patient_id', userId)
+                .order('scheduled_time', { ascending: true });
 
-        container.innerHTML = `
-            <div class="row">
-                <div class="col-12">
-                    <h2>💊 Prescriptions & Medications</h2>
-                    <p class="text-muted">View all your prescriptions and medication schedule</p>
-                </div>
-            </div>
+            if (medError) console.error('Error fetching medication schedule:', medError);
 
-            <div class="stats-grid">
-                <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
-                    <div class="stat-label">💊 Prescriptions</div>
-                    <div class="stat-value success">${prescriptions?.length || 0}</div>
-                </div>
-                <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
-                    <div class="stat-label">⏰ Today's Meds</div>
-                    <div class="stat-value warning">${upcomingMeds.length}</div>
-                </div>
-            </div>
+            const today = new Date().toISOString().split('T')[0];
+            const upcomingMeds = medicationSchedule?.filter(m => 
+                !m.taken && new Date(m.scheduled_time).toISOString().split('T')[0] === today
+            ) || [];
+            
+            const allUpcomingMeds = medicationSchedule?.filter(m => !m.taken) || [];
 
-            ${upcomingMeds.length > 0 ? `
-                <div class="row mt-3">
+            container.innerHTML = `
+                <div class="row">
                     <div class="col-12">
-                        <div class="card border-success">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
-                                <span class="badge bg-light text-dark">${upcomingMeds.length} pending</span>
-                            </div>
-                            <div class="card-body">
-                                ${upcomingMeds.map(med => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                                        <div>
-                                            <strong>💊 ${med.medication}</strong>
-                                            <br><small>${med.dosage} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
-                                            ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
-                                        </div>
-                                        <div>
-                                            <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
+                        <h2>💊 Prescriptions & Medications</h2>
+                        <p class="text-muted">View all your prescriptions and medication schedule</p>
                     </div>
                 </div>
-            ` : `
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card border-info">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="mb-0">✅ Today's Medications</h5>
-                            </div>
-                            <div class="card-body text-center py-3">
-                                <p class="mb-0">🎉 No pending medications for today</p>
-                            </div>
-                        </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
+                        <div class="stat-label">💊 Prescriptions</div>
+                        <div class="stat-value success">${prescriptions?.length || 0}</div>
+                    </div>
+                    <div class="stat-card" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
+                        <div class="stat-label">⏰ Today's Meds</div>
+                        <div class="stat-value warning">${upcomingMeds.length}</div>
                     </div>
                 </div>
-            `}
 
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">📋 All Prescriptions (${prescriptions?.length || 0})</h5>
-                        </div>
-                        <div class="card-body">
-                            ${prescriptions && prescriptions.length > 0
-                                ? prescriptions.map(rx => `
-                                    <div class="border-bottom pb-3 mb-3">
-                                        <div class="d-flex justify-content-between">
+                ${upcomingMeds.length > 0 ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
+                                    <span class="badge bg-light text-dark">${upcomingMeds.length} pending</span>
+                                </div>
+                                <div class="card-body">
+                                    ${upcomingMeds.map(med => `
+                                        <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
                                             <div>
-                                                <h6 class="mb-0">💊 ${rx.medication} - ${rx.dosage}</h6>
-                                                <p class="mb-0 small">
-                                                    <strong>👨‍⚕️ Doctor:</strong> ${rx.doctor?.full_name || 'Unknown'}
-                                                    <br><strong>⏰ Frequency:</strong> ${rx.frequency || 'As directed'}
-                                                    <br><strong>📅 Duration:</strong> ${rx.duration || 'N/A'}
-                                                    <br><strong>🍽️ When to take:</strong> ${rx.when_to_take || 'As directed'}
-                                                    <br><strong>📝 Instructions:</strong> ${rx.instructions || 'Take as directed'}
-                                                    ${rx.notes ? `<br><strong>📌 Notes:</strong> ${rx.notes}` : ''}
-                                                </p>
-                                                <small>📅 Issued: ${new Date(rx.issued_at).toLocaleDateString()}</small>
+                                                <strong>💊 ${med.medication || 'Unknown'}</strong>
+                                                <br><small>${med.dosage || ''} - ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                                ${med.is_refill_reminder ? '<br><span class="badge bg-warning">🔄 Refill Reminder</span>' : ''}
                                             </div>
                                             <div>
-                                                <span class="badge ${rx.duration_days ? 'bg-success' : 'bg-secondary'}">
-                                                    ${rx.duration_days ? '✅ Active' : 'Completed'}
-                                                </span>
+                                                <button class="btn btn-sm btn-success" onclick="patientManager.markMedicationTaken('${med.id}')">✅ Mark Taken</button>
                                             </div>
                                         </div>
-                                    </div>
-                                `).join('')
-                                : '<p class="text-muted text-center py-3">No prescriptions found</p>'
-                            }
+                                    `).join('')}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                ` : `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">✅ Today's Medications</h5>
+                                </div>
+                                <div class="card-body text-center py-3">
+                                    <p class="mb-0">🎉 No pending medications for today</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}
 
-            ${allUpcomingMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header">
-                                <h5 class="mb-0">📅 Upcoming Medication Schedule (${allUpcomingMeds.length})</h5>
+                                <h5 class="mb-0">📋 All Prescriptions (${prescriptions?.length || 0})</h5>
                             </div>
                             <div class="card-body">
-                                ${allUpcomingMeds.slice(0, 20).map(med => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                                        <div>
-                                            <strong>💊 ${med.medication}</strong>
-                                            <br><small>${med.dosage} - 📅 ${new Date(med.scheduled_time).toLocaleDateString()} ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                ${prescriptions && prescriptions.length > 0
+                                    ? prescriptions.map(rx => `
+                                        <div class="border-bottom pb-3 mb-3">
+                                            <div class="d-flex justify-content-between">
+                                                <div>
+                                                    <h6 class="mb-0">💊 ${rx.medication || 'Unknown'} - ${rx.dosage || ''}</h6>
+                                                    <p class="mb-0 small">
+                                                        <strong>👨‍⚕️ Doctor:</strong> ${rx.doctor?.full_name || 'Unknown'}
+                                                        <br><strong>⏰ Frequency:</strong> ${rx.frequency || 'As directed'}
+                                                        <br><strong>📅 Duration:</strong> ${rx.duration || 'N/A'}
+                                                        <br><strong>🍽️ When to take:</strong> ${rx.when_to_take || 'As directed'}
+                                                        <br><strong>📝 Instructions:</strong> ${rx.instructions || 'Take as directed'}
+                                                        ${rx.notes ? `<br><strong>📌 Notes:</strong> ${rx.notes}` : ''}
+                                                    </p>
+                                                    <small>📅 Issued: ${new Date(rx.issued_at).toLocaleDateString()}</small>
+                                                </div>
+                                                <div>
+                                                    <span class="badge ${rx.duration_days ? 'bg-success' : 'bg-secondary'}">
+                                                        ${rx.duration_days ? '✅ Active' : 'Completed'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span class="badge ${med.taken ? 'bg-success' : 'bg-warning'}">
-                                                ${med.taken ? '✅ Taken' : '⏳ Pending'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                                ${allUpcomingMeds.length > 20 ? `<p class="text-muted mt-2">... and ${allUpcomingMeds.length - 20} more</p>` : ''}
+                                    `).join('')
+                                    : '<p class="text-muted text-center py-3">No prescriptions found</p>'
+                                }
                             </div>
                         </div>
                     </div>
                 </div>
-            ` : ''}
-        `;
+
+                ${allUpcomingMeds.length > 0 ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">📅 Upcoming Medication Schedule (${allUpcomingMeds.length})</h5>
+                                </div>
+                                <div class="card-body">
+                                    ${allUpcomingMeds.slice(0, 20).map(med => `
+                                        <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                            <div>
+                                                <strong>💊 ${med.medication || 'Unknown'}</strong>
+                                                <br><small>${med.dosage || ''} - 📅 ${new Date(med.scheduled_time).toLocaleDateString()} ⏰ ${new Date(med.scheduled_time).toLocaleTimeString()}</small>
+                                            </div>
+                                            <div>
+                                                <span class="badge ${med.taken ? 'bg-success' : 'bg-warning'}">
+                                                    ${med.taken ? '✅ Taken' : '⏳ Pending'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                    ${allUpcomingMeds.length > 20 ? `<p class="text-muted mt-2">... and ${allUpcomingMeds.length - 20} more</p>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        } catch (error) {
+            console.error('❌ Error loading medications:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading medications: ${error.message}
+                </div>
+            `;
+        }
     }
 
     // =============================================
     // PROFILE CONTENT
     // =============================================
     async loadProfileContent(container) {
+        if (!authManager) {
+            container.innerHTML = '<div class="alert alert-danger">Authentication not available</div>';
+            return;
+        }
+        
         const profile = authManager.getUserProfile();
+        if (!profile) {
+            container.innerHTML = '<div class="alert alert-warning">Please log in to view your profile</div>';
+            return;
+        }
 
         container.innerHTML = `
             <div class="row">
@@ -830,9 +925,9 @@ class PatientManager {
                     <div class="card">
                         <div class="card-body text-center">
                             <div style="font-size: 4rem;">👤</div>
-                            <h5>${profile.full_name}</h5>
+                            <h5>${profile.full_name || 'User'}</h5>
                             <p class="text-muted">Patient</p>
-                            <p><small>📧 ${profile.email}</small></p>
+                            <p><small>📧 ${profile.email || ''}</small></p>
                             <p><small>📱 ${profile.phone || 'No phone'}</small></p>
                         </div>
                     </div>
@@ -840,58 +935,34 @@ class PatientManager {
             </div>
         `;
 
-        document.getElementById('profileForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fullName = document.getElementById('fullName').value.trim();
-            const phone = document.getElementById('phone').value.trim();
+        const profileForm = document.getElementById('profileForm');
+        if (profileForm) {
+            profileForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fullName = document.getElementById('fullName').value.trim();
+                const phone = document.getElementById('phone').value.trim();
 
-            try {
-                const userId = authManager.getUserId();
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({ full_name: fullName, phone: phone })
-                    .eq('id', userId);
+                try {
+                    const userId = authManager.getUserId();
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ full_name: fullName, phone: phone })
+                        .eq('id', userId);
 
-                if (error) throw error;
+                    if (error) throw error;
 
-                authManager.userProfile.full_name = fullName;
-                authManager.userProfile.phone = phone;
+                    if (authManager.userProfile) {
+                        authManager.userProfile.full_name = fullName;
+                        authManager.userProfile.phone = phone;
+                    }
 
-                alert('✅ Profile updated successfully!');
-                this.loadView('profile');
-            } catch (error) {
-                alert('Failed to update profile: ' + error.message);
-            }
-        });
-    }
-
-    // =============================================
-    // NOTIFICATIONS
-    // =============================================
-    async showNotifications() {
-        const userId = authManager.getUserId();
-        
-        const { count: unreadMessages } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('receiver_id', userId)
-            .is('read_at', null);
-
-        const { count: upcomingAppointments } = await supabase
-            .from('appointments')
-            .select('*', { count: 'exact', head: true })
-            .eq('patient_id', userId)
-            .eq('status', 'scheduled')
-            .gte('scheduled_at', new Date().toISOString());
-
-        const { count: pendingMeds } = await supabase
-            .from('medication_schedule')
-            .select('*', { count: 'exact', head: true })
-            .eq('patient_id', userId)
-            .eq('taken', false)
-            .gte('scheduled_time', new Date().toISOString());
-
-        alert(`🔔 Notifications:\n\n• ${unreadMessages || 0} unread messages\n• ${upcomingAppointments || 0} upcoming appointments\n• ${pendingMeds || 0} pending medications`);
+                    alert('✅ Profile updated successfully!');
+                    this.loadView('profile');
+                } catch (error) {
+                    alert('Failed to update profile: ' + error.message);
+                }
+            });
+        }
     }
 
     // =============================================
@@ -924,8 +995,9 @@ class PatientManager {
     // =============================================
     async bookAppointment(doctorId, consultationType, scheduledAt, notes, fee) {
         try {
-            const userId = authManager.getUserId();
+            if (!authManager) throw new Error('Authentication not available');
             
+            const userId = authManager.getUserId();
             if (!userId) throw new Error('User not authenticated. Please log in again.');
             if (!doctorId) throw new Error('Please select a doctor.');
 
@@ -989,8 +1061,8 @@ class PatientManager {
     showBookingModal(preSelectedDoctorId = null, preSelectedDoctorName = null) {
         this.refreshDoctors();
         
-        const doctorsHtml = this.availableDoctors.map(doc => 
-            `<option value="${doc.id}" ${doc.id === preSelectedDoctorId ? 'selected' : ''}>👨‍⚕️ Dr. ${doc.full_name} - ${doc.specialty || 'General Practice'}</option>`
+        const doctorsHtml = (this.availableDoctors || []).map(doc => 
+            `<option value="${doc.id}" ${doc.id === preSelectedDoctorId ? 'selected' : ''}>👨‍⚕️ Dr. ${doc.full_name || 'Unknown'} - ${doc.specialty || 'General Practice'}</option>`
         ).join('');
 
         const modalHtml = `
@@ -1043,57 +1115,71 @@ class PatientManager {
         const defaultDate = new Date();
         defaultDate.setDate(defaultDate.getDate() + 1);
         defaultDate.setHours(9, 0, 0, 0);
-        document.getElementById('appointmentDate').value = defaultDate.toISOString().slice(0, 16);
+        const dateInput = document.getElementById('appointmentDate');
+        if (dateInput) {
+            dateInput.value = defaultDate.toISOString().slice(0, 16);
+        }
 
-        document.getElementById('consultationType').addEventListener('change', (e) => {
-            const type = e.target.value;
-            const info = document.getElementById('paymentInfo');
-            const btn = document.getElementById('bookBtn');
-            
-            if (type === 'video') {
-                info.innerHTML = '🎥 <strong>Video Call:</strong> KES 300 - Pay <strong>after</strong> the call';
-                btn.innerHTML = '📅 Book Now (Pay Later)';
-                btn.className = 'btn btn-primary btn-block';
-            } else {
-                info.innerHTML = '🏥 <strong>Physical Consultation:</strong> KES 500 - Pay <strong>now</strong> to book';
-                btn.innerHTML = '💳 Pay KES 500 & Book';
-                btn.className = 'btn btn-warning btn-block';
-            }
-        });
+        const consultationType = document.getElementById('consultationType');
+        if (consultationType) {
+            consultationType.addEventListener('change', (e) => {
+                const type = e.target.value;
+                const info = document.getElementById('paymentInfo');
+                const btn = document.getElementById('bookBtn');
+                
+                if (type === 'video') {
+                    if (info) info.innerHTML = '🎥 <strong>Video Call:</strong> KES 300 - Pay <strong>after</strong> the call';
+                    if (btn) {
+                        btn.innerHTML = '📅 Book Now (Pay Later)';
+                        btn.className = 'btn btn-primary btn-block';
+                    }
+                } else {
+                    if (info) info.innerHTML = '🏥 <strong>Physical Consultation:</strong> KES 500 - Pay <strong>now</strong> to book';
+                    if (btn) {
+                        btn.innerHTML = '💳 Pay KES 500 & Book';
+                        btn.className = 'btn btn-warning btn-block';
+                    }
+                }
+            });
+        }
 
-        document.getElementById('bookingForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const doctorId = document.getElementById('doctorSelect').value;
-            const consultationType = document.getElementById('consultationType').value;
-            const scheduledAt = document.getElementById('appointmentDate').value;
-            const notes = document.getElementById('appointmentNotes').value;
+        const bookingForm = document.getElementById('bookingForm');
+        if (bookingForm) {
+            bookingForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const doctorId = document.getElementById('doctorSelect').value;
+                const consultationType = document.getElementById('consultationType').value;
+                const scheduledAt = document.getElementById('appointmentDate').value;
+                const notes = document.getElementById('appointmentNotes').value;
 
-            if (!doctorId) {
-                alert('Please select a doctor.');
-                return;
-            }
+                if (!doctorId) {
+                    alert('Please select a doctor.');
+                    return;
+                }
 
-            if (!scheduledAt) {
-                alert('Please select a date and time.');
-                return;
-            }
+                if (!scheduledAt) {
+                    alert('Please select a date and time.');
+                    return;
+                }
 
-            const fee = consultationType === 'video' ? 300 : 500;
-            
-            if (consultationType === 'physical') {
-                if (!confirm(`Pay KES ${fee} now to book physical consultation?`)) return;
-            } else {
-                if (!confirm(`Book video consultation? You'll pay KES ${fee} after the call.`)) return;
-            }
+                const fee = consultationType === 'video' ? 300 : 500;
+                
+                if (consultationType === 'physical') {
+                    if (!confirm(`Pay KES ${fee} now to book physical consultation?`)) return;
+                } else {
+                    if (!confirm(`Book video consultation? You'll pay KES ${fee} after the call.`)) return;
+                }
 
-            const result = await this.bookAppointment(doctorId, consultationType, scheduledAt, notes, fee);
-            alert(result.message);
-            
-            if (result.success) {
-                document.getElementById('bookingModal').remove();
-                this.loadView('appointments');
-            }
-        });
+                const result = await this.bookAppointment(doctorId, consultationType, scheduledAt, notes, fee);
+                alert(result.message);
+                
+                if (result.success) {
+                    const modal = document.getElementById('bookingModal');
+                    if (modal) modal.remove();
+                    this.loadView('appointments');
+                }
+            });
+        }
     }
 
     // =============================================
@@ -1118,6 +1204,8 @@ class PatientManager {
         if (!confirm(`Pay KES ${amount} for this completed video consultation?`)) return;
 
         try {
+            if (!authManager) throw new Error('Authentication not available');
+            
             const userId = authManager.getUserId();
             const paymentResult = await this.processPayment(amount, userId, appointmentId);
             
@@ -1205,15 +1293,61 @@ class PatientManager {
             return;
         }
         
-        if (window.videoManager) {
+        if (window.videoManager && typeof window.videoManager.joinRoom === 'function') {
             window.videoManager.joinRoom(roomId, displayName);
         } else {
             alert(`🎥 Video call started\nRoom: ${roomId}\nName: ${displayName}`);
+            // You might want to redirect to a video call page here
+            window.open(`/video-call.html?room=${roomId}&name=${displayName}`, '_blank');
+        }
+    }
+
+    // =============================================
+    // NOTIFICATIONS
+    // =============================================
+    async showNotifications() {
+        if (!authManager) {
+            alert('Please log in to view notifications');
+            return;
+        }
+        
+        const userId = authManager.getUserId();
+        if (!userId) {
+            alert('Please log in to view notifications');
+            return;
+        }
+        
+        try {
+            const { count: unreadMessages } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('receiver_id', userId)
+                .is('read_at', null);
+
+            const { count: upcomingAppointments } = await supabase
+                .from('appointments')
+                .select('*', { count: 'exact', head: true })
+                .eq('patient_id', userId)
+                .eq('status', 'scheduled')
+                .gte('scheduled_at', new Date().toISOString());
+
+            const { count: pendingMeds } = await supabase
+                .from('medication_schedule')
+                .select('*', { count: 'exact', head: true })
+                .eq('patient_id', userId)
+                .eq('taken', false)
+                .gte('scheduled_time', new Date().toISOString());
+
+            alert(`🔔 Notifications:\n\n• ${unreadMessages || 0} unread messages\n• ${upcomingAppointments || 0} upcoming appointments\n• ${pendingMeds || 0} pending medications`);
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+            alert('Error loading notifications: ' + error.message);
         }
     }
 }
 
 // Initialize patient manager
+console.log('🚀 Creating PatientManager instance...');
 const patientManager = new PatientManager();
 window.patientManager = patientManager;
-console.log('PatientManager initialized');
+console.log('✅ PatientManager initialized and attached to window');
