@@ -291,6 +291,7 @@ class App {
             return;
         }
 
+        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -321,11 +322,9 @@ class App {
                         return;
                 }
 
-                if (result !== undefined && result !== null) {
-                    // Only update content if we got a result (chat view handles itself)
-                    if (typeof result === 'string') {
-                        content.innerHTML = result;
-                    }
+                // Only update content if we got a string result
+                if (result !== undefined && result !== null && typeof result === 'string') {
+                    content.innerHTML = result;
                 }
             } catch (error) {
                 console.error('❌ Error in loadView:', error);
@@ -340,7 +339,9 @@ class App {
     }
 
     async handleAdminView(view) {
-        if (!adminManager) return `<p class="text-danger">Admin manager not loaded.</p>`;
+        if (!adminManager) {
+            return `<p class="text-danger">Admin manager not loaded.</p>`;
+        }
 
         const views = {
             dashboard: () => adminManager._dashboard,
@@ -352,7 +353,9 @@ class App {
         };
 
         const handler = views[view];
-        if (!handler) return `<p class="text-warning">View "${view}" not found.</p>`;
+        if (!handler) {
+            return `<p class="text-warning">View "${view}" not found.</p>`;
+        }
 
         try {
             const container = document.createElement('div');
@@ -381,8 +384,14 @@ class App {
             // Handle chat view specially
             if (view === 'chat') {
                 console.log('💬 Loading chat via doctorManager.loadView()');
-                await doctorManager.loadView('chat');
-                // Return current content (it will be updated by loadView)
+                // Create a temporary container for the doctor manager
+                const tempContainer = document.createElement('div');
+                tempContainer.id = 'doctorContent';
+                content.innerHTML = '';
+                content.appendChild(tempContainer);
+                
+                // Call doctorManager.loadView with the temp container
+                await doctorManager.loadView(view);
                 return content.innerHTML;
             }
 
@@ -429,11 +438,17 @@ class App {
                 return `<p class="text-danger">Content area not found.</p>`;
             }
 
-            // Handle chat view specially
+            // Handle chat view specially - let patientManager handle it
             if (view === 'chat') {
                 console.log('💬 Loading chat via patientManager.loadView()');
-                await patientManager.loadView('chat');
-                // Return current content (it will be updated by loadView)
+                // Create a temporary container for the patient manager
+                const tempContainer = document.createElement('div');
+                tempContainer.id = 'patientContent';
+                content.innerHTML = '';
+                content.appendChild(tempContainer);
+                
+                // Call patientManager.loadView with the temp container
+                await patientManager.loadView(view);
                 return content.innerHTML;
             }
 
@@ -450,6 +465,9 @@ class App {
                     break;
                 case 'doctors':
                     await patientManager.loadDoctorsContent(container);
+                    break;
+                case 'medications':
+                    await patientManager.loadMedicationsContent(container);
                     break;
                 case 'profile':
                     await patientManager.loadProfileContent(container);
