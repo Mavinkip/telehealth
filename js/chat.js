@@ -32,6 +32,23 @@ class ChatManager {
 
         if (!contentArea) {
             console.error('❌ Content area not found');
+            // Try to find it again
+            const tryAgain = document.getElementById('patientContent') || document.getElementById('doctorContent');
+            if (tryAgain) {
+                this.renderChatContent(tryAgain);
+                this.loadConversations();
+                return;
+            }
+            // If still not found, create a fallback
+            const app = document.getElementById('app');
+            if (app) {
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.id = 'chatFallback';
+                fallbackDiv.style.padding = '20px';
+                app.appendChild(fallbackDiv);
+                this.renderChatContent(fallbackDiv);
+                this.loadConversations();
+            }
             return;
         }
 
@@ -96,14 +113,21 @@ class ChatManager {
             </div>
         `;
 
-        // Attach event listeners for this chat view
-        document.getElementById('sendMessageBtn')?.addEventListener('click', () => this.sendMessage());
-        document.getElementById('messageInput')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
+        // Attach event listeners for this chat view with null checks
+        const sendBtn = document.getElementById('sendMessageBtn');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendMessage());
+        }
+
+        const messageInput = document.getElementById('messageInput');
+        if (messageInput) {
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+        }
     }
 
     // =============================================
@@ -113,6 +137,11 @@ class ChatManager {
         const userId = authManager.getUserId();
         const role = authManager.getUserRole();
         const conversationList = document.getElementById('conversationList');
+
+        if (!conversationList) {
+            console.error('❌ Conversation list element not found');
+            return;
+        }
 
         if (!userId) {
             conversationList.innerHTML = '<p class="p-3 text-muted">Please login to see conversations</p>';
