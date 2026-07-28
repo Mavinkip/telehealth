@@ -190,6 +190,7 @@ class App {
         document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(item => {
             item.addEventListener('click', () => {
                 const view = item.dataset.view;
+                console.log('📱 Nav item clicked:', view);
                 this.loadView(view);
                 this.closeMobileSidebar();
             });
@@ -280,11 +281,15 @@ class App {
     }
 
     async loadView(view) {
+        console.log('📱 App.loadView called with view:', view);
         this.currentView = view;
         this.updateActiveNav(view);
 
         const content = document.getElementById('app-content');
-        if (!content) return;
+        if (!content) {
+            console.error('❌ app-content not found');
+            return;
+        }
 
         content.innerHTML = `
             <div class="text-center py-5">
@@ -297,25 +302,39 @@ class App {
 
         setTimeout(async () => {
             const role = this.currentRole;
+            console.log('📱 Current role:', role);
             let result = null;
 
-            switch(role) {
-                case 'admin':
-                    result = await this.handleAdminView(view);
-                    break;
-                case 'doctor':
-                    result = await this.handleDoctorView(view);
-                    break;
-                case 'patient':
-                    result = await this.handlePatientView(view);
-                    break;
-                default:
-                    content.innerHTML = `<p class="text-danger">Unknown role: ${role}</p>`;
-                    return;
-            }
+            try {
+                switch(role) {
+                    case 'admin':
+                        result = await this.handleAdminView(view);
+                        break;
+                    case 'doctor':
+                        result = await this.handleDoctorView(view);
+                        break;
+                    case 'patient':
+                        result = await this.handlePatientView(view);
+                        break;
+                    default:
+                        content.innerHTML = `<p class="text-danger">Unknown role: ${role}</p>`;
+                        return;
+                }
 
-            if (result) {
-                content.innerHTML = result;
+                if (result !== undefined && result !== null) {
+                    // Only update content if we got a result (chat view handles itself)
+                    if (typeof result === 'string') {
+                        content.innerHTML = result;
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error in loadView:', error);
+                content.innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Error loading view: ${error.message}
+                        <br><button class="btn btn-primary mt-2" onclick="app.loadView('dashboard')">⬅️ Go to Dashboard</button>
+                    </div>
+                `;
             }
         }, 100);
     }
@@ -345,56 +364,104 @@ class App {
     }
 
     async handleDoctorView(view) {
-        if (!doctorManager) return `<p class="text-danger">Doctor manager not loaded.</p>`;
-
-        const views = {
-            dashboard: () => doctorManager.loadDashboardContent,
-            appointments: () => doctorManager.loadAppointmentsContent,
-            patients: () => doctorManager.loadPatientsContent,
-            chat: () => doctorManager.openChat,
-            profile: () => doctorManager.loadProfileContent
-        };
-
-        const handler = views[view];
-        if (!handler) return `<p class="text-warning">View "${view}" not found.</p>`;
+        console.log('📱 handleDoctorView called with view:', view);
+        
+        if (!doctorManager) {
+            console.error('❌ doctorManager not defined');
+            return `<p class="text-danger">Doctor manager not loaded. Please refresh the page.</p>`;
+        }
 
         try {
-            const container = document.createElement('div');
-            if (view === 'chat') {
-                handler().call(doctorManager);
-                return `<div id="chatContainer"><p>Chat interface loading...</p></div>`;
+            const content = document.getElementById('app-content');
+            if (!content) {
+                console.error('❌ app-content element not found');
+                return `<p class="text-danger">Content area not found.</p>`;
             }
-            await handler().call(doctorManager, container);
+
+            // Handle chat view specially
+            if (view === 'chat') {
+                console.log('💬 Loading chat via doctorManager.loadView()');
+                await doctorManager.loadView('chat');
+                // Return current content (it will be updated by loadView)
+                return content.innerHTML;
+            }
+
+            // For other views, use the container approach
+            const container = document.createElement('div');
+            container.id = 'tempContainer';
+            
+            switch(view) {
+                case 'dashboard':
+                    await doctorManager.loadDashboardContent(container);
+                    break;
+                case 'appointments':
+                    await doctorManager.loadAppointmentsContent(container);
+                    break;
+                case 'patients':
+                    await doctorManager.loadPatientsContent(container);
+                    break;
+                case 'profile':
+                    await doctorManager.loadProfileContent(container);
+                    break;
+                default:
+                    await doctorManager.loadDashboardContent(container);
+            }
+            
             return container.innerHTML;
         } catch (error) {
-            return `<p class="text-danger">Error: ${error.message}</p>`;
+            console.error('❌ Error in handleDoctorView:', error);
+            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
         }
     }
 
     async handlePatientView(view) {
-        if (!patientManager) return `<p class="text-danger">Patient manager not loaded.</p>`;
-
-        const views = {
-            dashboard: () => patientManager.loadDashboardContent,
-            appointments: () => patientManager.loadAppointmentsContent,
-            doctors: () => patientManager.loadDoctorsContent,
-            chat: () => patientManager.openChat,
-            profile: () => patientManager.loadProfileContent
-        };
-
-        const handler = views[view];
-        if (!handler) return `<p class="text-warning">View "${view}" not found.</p>`;
+        console.log('📱 handlePatientView called with view:', view);
+        
+        if (!patientManager) {
+            console.error('❌ patientManager not defined');
+            return `<p class="text-danger">Patient manager not loaded. Please refresh the page.</p>`;
+        }
 
         try {
-            const container = document.createElement('div');
-            if (view === 'chat') {
-                handler().call(patientManager);
-                return `<div id="chatContainer"><p>Chat interface loading...</p></div>`;
+            const content = document.getElementById('app-content');
+            if (!content) {
+                console.error('❌ app-content element not found');
+                return `<p class="text-danger">Content area not found.</p>`;
             }
-            await handler().call(patientManager, container);
+
+            // Handle chat view specially
+            if (view === 'chat') {
+                console.log('💬 Loading chat via patientManager.loadView()');
+                await patientManager.loadView('chat');
+                // Return current content (it will be updated by loadView)
+                return content.innerHTML;
+            }
+
+            // For other views, use the container approach
+            const container = document.createElement('div');
+            container.id = 'tempContainer';
+            
+            switch(view) {
+                case 'dashboard':
+                    await patientManager.loadDashboardContent(container);
+                    break;
+                case 'appointments':
+                    await patientManager.loadAppointmentsContent(container);
+                    break;
+                case 'doctors':
+                    await patientManager.loadDoctorsContent(container);
+                    break;
+                case 'profile':
+                    await patientManager.loadProfileContent(container);
+                    break;
+                default:
+                    await patientManager.loadDashboardContent(container);
+            }
+            
             return container.innerHTML;
         } catch (error) {
-            return `<p class="text-danger">Error: ${error.message}</p>`;
+            console.error('❌ Error in handlePatientView:', error);
+            return `<p class="text-danger">Error loading view: ${error.message}</p>`;
         }
     }
 
@@ -406,6 +473,7 @@ class App {
     }
 }
 
+// Initialize app
 const app = new App();
 window.app = app;
-console.log('App initialized');
+console.log('✅ App initialized');
