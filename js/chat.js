@@ -26,43 +26,30 @@ class ChatManager {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         try {
+            // Set chat state
             this.currentAppointmentId = appointmentId;
             this.currentChatPartnerId = partnerId;
             this.isOpen = true;
             this.messageIds = new Set();
-            console.log('✅ Chat state updated:', {
-                currentAppointmentId: this.currentAppointmentId,
-                currentChatPartnerId: this.currentChatPartnerId,
-                isOpen: this.isOpen
-            });
+            console.log('✅ Chat state updated');
 
-            // Get the content area from the current view
+            // Find content area
             console.log('🔍 Looking for content area...');
-            const contentArea = document.getElementById('doctorContent') || 
-                               document.getElementById('patientContent') || 
+            const contentArea = document.getElementById('patientContent') || 
+                               document.getElementById('doctorContent') || 
                                document.getElementById('app-content');
             
             console.log('📄 Content area found:', contentArea ? 'YES' : 'NO');
             if (contentArea) {
                 console.log('📄 Content area ID:', contentArea.id);
-                console.log('📄 Content area HTML length:', contentArea.innerHTML.length);
             }
 
             if (!contentArea) {
                 console.error('❌ Content area not found!');
-                // Try to find it again
-                console.log('🔄 Trying to find content area again...');
-                const tryAgain = document.getElementById('patientContent') || document.getElementById('doctorContent');
-                if (tryAgain) {
-                    console.log('✅ Found on retry:', tryAgain.id);
-                    this.renderChatContent(tryAgain);
-                    this.loadConversations();
-                    return;
-                }
-                // If still not found, create a fallback
-                console.log('🔄 Creating fallback chat container...');
+                // Try to create a fallback
                 const app = document.getElementById('app');
                 if (app) {
+                    console.log('🔄 Creating fallback chat container...');
                     const fallbackDiv = document.createElement('div');
                     fallbackDiv.id = 'chatFallback';
                     fallbackDiv.style.padding = '20px';
@@ -70,13 +57,11 @@ class ChatManager {
                     console.log('✅ Fallback container created');
                     this.renderChatContent(fallbackDiv);
                     this.loadConversations();
-                } else {
-                    console.error('❌ No app element found!');
                 }
                 return;
             }
 
-            // Render chat inside the content area
+            // Render chat
             console.log('📝 Rendering chat content...');
             this.renderChatContent(contentArea);
             
@@ -84,7 +69,7 @@ class ChatManager {
             console.log('📞 Loading conversations...');
             this.loadConversations();
             
-            console.log('✅ showChatInterface completed successfully');
+            console.log('✅ showChatInterface completed');
         } catch (error) {
             console.error('❌ Error in showChatInterface:', error);
             console.error('❌ Error stack:', error.stack);
@@ -97,7 +82,7 @@ class ChatManager {
     // =============================================
     renderChatContent(container) {
         console.log('📝 renderChatContent called');
-        console.log('📄 Container:', container.id || 'unnamed');
+        console.log('📄 Container ID:', container.id || 'unnamed');
         
         try {
             container.innerHTML = `
@@ -149,37 +134,37 @@ class ChatManager {
                     </div>
                 </div>
             `;
-            console.log('✅ Chat HTML rendered successfully');
+            console.log('✅ Chat HTML rendered');
 
-            // Attach event listeners for this chat view with null checks
+            // Attach event listeners
             console.log('🔗 Attaching event listeners...');
             
             const sendBtn = document.getElementById('sendMessageBtn');
             if (sendBtn) {
-                console.log('✅ sendMessageBtn found, attaching click listener');
                 sendBtn.addEventListener('click', () => {
                     console.log('🖱️ Send button clicked');
                     this.sendMessage();
                 });
+                console.log('✅ sendMessageBtn listener attached');
             } else {
                 console.warn('⚠️ sendMessageBtn not found');
             }
 
             const messageInput = document.getElementById('messageInput');
             if (messageInput) {
-                console.log('✅ messageInput found, attaching keypress listener');
                 messageInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        console.log('⌨️ Enter key pressed in message input');
+                        console.log('⌨️ Enter key pressed');
                         e.preventDefault();
                         this.sendMessage();
                     }
                 });
+                console.log('✅ messageInput listener attached');
             } else {
                 console.warn('⚠️ messageInput not found');
             }
             
-            console.log('✅ All event listeners attached');
+            console.log('✅ renderChatContent completed');
         } catch (error) {
             console.error('❌ Error in renderChatContent:', error);
             console.error('❌ Error stack:', error.stack);
@@ -259,7 +244,10 @@ class ChatManager {
 
             console.log('🚀 Executing Supabase query...');
             const { data, error } = await query;
-            console.log('📊 Query result:', { dataLength: data?.length || 0, error: error?.message || 'none' });
+            console.log('📊 Query result:', { 
+                dataLength: data?.length || 0, 
+                error: error?.message || 'none' 
+            });
 
             if (error) {
                 console.error('❌ Error loading conversations:', error);
@@ -302,24 +290,7 @@ class ChatManager {
                     if (lastMsg && lastMsg.length > 0) {
                         conv.lastMessage = lastMsg[0].content;
                         conv.lastMessageTime = lastMsg[0].sent_at;
-                        conv.lastMessageSender = lastMsg[0].sender_id;
                         console.log('📩 Last message found:', conv.lastMessage.substring(0, 30) + '...');
-                        
-                        const { count, error: countError } = await supabase
-                            .from('messages')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('appointment_id', conv.appointmentId)
-                            .eq('receiver_id', userId)
-                            .is('read_at', null);
-
-                        if (!countError) {
-                            conv.unreadCount = count || 0;
-                            if (conv.unreadCount > 0) {
-                                console.log('📩 Unread messages:', conv.unreadCount);
-                            }
-                        }
-                    } else {
-                        console.log('📩 No messages found for this conversation');
                     }
                 }
 
@@ -328,9 +299,6 @@ class ChatManager {
                     if (!b.lastMessageTime) return -1;
                     return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
                 });
-                console.log('📊 Conversations sorted by last message time');
-            } else {
-                console.log('📊 No appointments found');
             }
 
             if (uniqueConversations.length === 0) {
@@ -427,6 +395,7 @@ class ChatManager {
                 console.log('✅ Online status updated');
             }
 
+            // Highlight selected conversation
             document.querySelectorAll('.conversation-item').forEach(item => {
                 item.style.backgroundColor = '';
                 item.style.borderLeft = '3px solid transparent';
@@ -442,8 +411,10 @@ class ChatManager {
 
             console.log('📩 Loading messages...');
             await this.loadMessages();
+            
             console.log('📡 Subscribing to messages...');
             this.subscribeToMessages();
+            
             console.log('📩 Marking messages as read...');
             await this.markMessagesAsRead();
             
@@ -638,17 +609,7 @@ class ChatManager {
                     this.messages.push(newMsg);
                     console.log('📤 Message added to local cache, total:', this.messages.length);
                     this.renderMessages();
-                } else {
-                    console.log('📤 Duplicate message detected, ignoring');
                 }
-            }
-
-            try {
-                await authManager.logActivity(userId, 'SEND_MESSAGE', 
-                    `Sent message in appointment ${this.currentAppointmentId}`);
-                console.log('📤 Activity logged');
-            } catch (logError) {
-                console.warn('⚠️ Activity log skipped:', logError.message);
             }
 
         } catch (error) {
@@ -718,10 +679,8 @@ class ChatManager {
     // =============================================
     handleNewMessage(message) {
         console.log('📩 handleNewMessage called');
-        console.log('📩 Message:', message);
         
         try {
-            // Check if message already exists (prevent duplicates)
             if (this.messageIds.has(message.id)) {
                 console.log('⚠️ Duplicate message detected, ignoring:', message.id);
                 return;
@@ -731,22 +690,13 @@ class ChatManager {
             const isSent = message.sender_id === userId;
             console.log('📩 Message from:', isSent ? 'me' : 'other');
             
-            // Add to message IDs set
             this.messageIds.add(message.id);
-            
-            // Add to messages array
             this.messages.push(message);
             console.log('📩 Message added, total:', this.messages.length);
             
-            // Update UI
             this.renderMessages();
-            console.log('📩 UI updated');
-
-            // Update conversation list
             this.updateConversationList(message);
-            console.log('📩 Conversation list updated');
 
-            // Mark as read if received
             if (!isSent) {
                 console.log('📩 Marking messages as read');
                 this.markMessagesAsRead();
@@ -769,7 +719,6 @@ class ChatManager {
         }
 
         const userId = authManager.getUserId();
-        console.log('👤 User ID:', userId);
 
         try {
             console.log('🚀 Updating messages as read...');
@@ -791,7 +740,6 @@ class ChatManager {
             document.querySelectorAll('.conversation-item').forEach(item => {
                 const badge = item.querySelector('.badge.bg-danger');
                 if (badge) {
-                    console.log('📩 Removing unread badge');
                     badge.remove();
                 }
             });
@@ -810,8 +758,6 @@ class ChatManager {
         
         try {
             const items = document.querySelectorAll('.conversation-item');
-            console.log('📩 Found', items.length, 'conversation items');
-            
             let targetItem = null;
 
             items.forEach(item => {
@@ -828,7 +774,6 @@ class ChatManager {
                     const small = textTruncate.querySelector('small');
                     if (small) {
                         small.textContent = this.escapeHtml(message.content.substring(0, 40)) + (message.content.length > 40 ? '...' : '');
-                        console.log('📩 Last message updated');
                     }
                 }
 
@@ -847,11 +792,8 @@ class ChatManager {
                     } else {
                         const count = parseInt(badge.textContent) + 1;
                         badge.textContent = count;
-                        console.log('📩 Unread count updated to:', count);
                     }
                 }
-            } else {
-                console.log('📩 Target item not found');
             }
         } catch (error) {
             console.error('❌ Error in updateConversationList:', error);
@@ -890,7 +832,6 @@ class ChatManager {
         
         try {
             if (this.subscription) {
-                console.log('🧹 Unsubscribing from messages...');
                 this.subscription.unsubscribe();
                 this.subscription = null;
                 console.log('🧹 Unsubscribed');
