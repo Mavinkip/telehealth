@@ -10,12 +10,15 @@ class PatientManager {
         this.chatManager = null;
     }
 
+    // Add this method to get chat manager
     getChatManager() {
         if (!this.chatManager) {
+            // Check if chatManager exists globally
             if (window.chatManager) {
                 this.chatManager = window.chatManager;
             } else {
                 console.warn('⚠️ Chat manager not initialized yet');
+                // Initialize it if needed
                 window.chatManager = new ChatManager();
                 this.chatManager = window.chatManager;
             }
@@ -48,6 +51,7 @@ class PatientManager {
     getDashboardHTML(profile) {
         return `
             <div class="app-layout patient-layout">
+                <!-- Sidebar -->
                 <aside class="sidebar" id="patientSidebar">
                     <div class="sidebar-header">
                         <div class="brand" onclick="patientManager.loadView('dashboard')">
@@ -93,6 +97,7 @@ class PatientManager {
                     </div>
                 </aside>
 
+                <!-- Main Content -->
                 <main class="main-content">
                     <header class="top-header">
                         <div class="header-left">
@@ -131,6 +136,7 @@ class PatientManager {
     }
 
     attachEvents() {
+        // Navigation links
         const navLinks = document.querySelectorAll('.nav-item[data-view]');
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
@@ -149,6 +155,7 @@ class PatientManager {
             });
         });
 
+        // Sidebar toggle
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -156,6 +163,7 @@ class PatientManager {
             });
         }
 
+        // Hamburger menu
         const hamburger = document.getElementById('hamburgerBtn');
         if (hamburger) {
             hamburger.addEventListener('click', () => {
@@ -163,6 +171,7 @@ class PatientManager {
             });
         }
 
+        // Overlay
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => {
@@ -170,6 +179,7 @@ class PatientManager {
             });
         }
 
+        // Logout buttons
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -194,6 +204,7 @@ class PatientManager {
             });
         }
 
+        // Notification button
         const notifBtn = document.getElementById('notificationBtn');
         if (notifBtn) {
             notifBtn.addEventListener('click', () => {
@@ -201,6 +212,7 @@ class PatientManager {
             });
         }
 
+        // Resize handler
         window.addEventListener('resize', () => {
             if (window.innerWidth > 992) {
                 this.closeMobileSidebar();
@@ -240,31 +252,13 @@ class PatientManager {
         if (overlay) overlay.classList.remove('active');
     }
 
-    // =============================================
-    // FIXED loadView - Works with both app-content and patientContent
-    // =============================================
     async loadView(view) {
-        console.log('📱 Patient loading view:', view);
+        console.log('📱 Loading view:', view);
         
-        // Try to find the content area - check both possible containers
-        let content = document.getElementById('patientContent');
-        if (!content) {
-            content = document.getElementById('app-content');
-        }
+        const content = document.getElementById('patientContent');
         if (!content) {
             console.error('❌ Content element not found');
-            // Create fallback
-            const app = document.getElementById('app');
-            if (app) {
-                const mainContent = app.querySelector('.main-content') || app;
-                const fallback = document.createElement('div');
-                fallback.id = 'app-content';
-                fallback.className = 'content-area';
-                mainContent.appendChild(fallback);
-                content = fallback;
-                console.log('✅ Created fallback content element');
-            }
-            if (!content) return;
+            return;
         }
 
         const titleMap = {
@@ -275,7 +269,6 @@ class PatientManager {
             'chat': 'Messages',
             'profile': 'Profile'
         };
-        
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle) {
             pageTitle.textContent = titleMap[view] || 'Dashboard';
@@ -293,6 +286,7 @@ class PatientManager {
                 </div>
             `;
             
+            // Initialize chat manager if needed
             const chatManager = this.getChatManager();
             
             setTimeout(() => {
@@ -311,7 +305,7 @@ class PatientManager {
             return;
         }
 
-        // Show loading for other views
+        // Show loading
         content.innerHTML = `
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -368,6 +362,7 @@ class PatientManager {
         }
         
         try {
+            // Get upcoming appointments
             const { data: upcomingAppointments, error: aptError } = await supabase
                 .from('appointments')
                 .select(`
@@ -382,6 +377,7 @@ class PatientManager {
 
             if (aptError) console.error('Error fetching appointments:', aptError);
 
+            // Get today's medications
             const { data: todaysMeds, error: medError } = await supabase
                 .from('medication_schedule')
                 .select('*')
@@ -395,6 +391,7 @@ class PatientManager {
 
             await this.refreshDoctors();
 
+            // Get unread messages count
             let unreadCount = 0;
             try {
                 const { count, error: msgError } = await supabase
@@ -1300,6 +1297,7 @@ class PatientManager {
             window.videoManager.joinRoom(roomId, displayName);
         } else {
             alert(`🎥 Video call started\nRoom: ${roomId}\nName: ${displayName}`);
+            // You might want to redirect to a video call page here
             window.open(`/video-call.html?room=${roomId}&name=${displayName}`, '_blank');
         }
     }
