@@ -1271,318 +1271,332 @@ class PatientManager {
     // =============================================
     // SHOW BOOKING MODAL - FIXED with proper styling
     // =============================================
-    showBookingModal(preSelectedDoctorId = null, preSelectedDoctorName = null) {
-        console.log('📅 Opening booking modal...');
-        console.log('Selected doctor:', preSelectedDoctorId, preSelectedDoctorName);
-        
-        this.refreshDoctors();
-        
-        const doctorsHtml = (this.availableDoctors || []).map(doc => 
-            `<option value="${doc.id}" ${doc.id === preSelectedDoctorId ? 'selected' : ''}>👨‍⚕️ Dr. ${doc.full_name || 'Unknown'} - ${doc.specialty || 'General Practice'}</option>`
-        ).join('');
+   // =============================================
+// SHOW BOOKING MODAL - SIMPLE & RELIABLE
+// =============================================
+showBookingModal(preSelectedDoctorId = null, preSelectedDoctorName = null) {
+    console.log('📅 Opening booking modal...');
+    console.log('Selected doctor:', preSelectedDoctorId, preSelectedDoctorName);
+    
+    // Refresh doctors list
+    this.refreshDoctors();
+    
+    // Remove existing modal
+    const existingModal = document.getElementById('bookingModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
 
-        // Remove existing modal
-        const existingModal = document.getElementById('bookingModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
+    // Build doctors dropdown
+    const doctorsHtml = (this.availableDoctors || []).map(doc => 
+        `<option value="${doc.id}" ${doc.id === preSelectedDoctorId ? 'selected' : ''}>Dr. ${doc.full_name || 'Unknown'} - ${doc.specialty || 'General Practice'}</option>`
+    ).join('');
 
-        const modalHtml = `
-            <div class="modal-overlay" id="bookingModal" style="
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.6);
+    // Create the modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'bookingModal';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+        padding: 20px;
+        backdrop-filter: blur(4px);
+    `;
+
+    // Create the modal content
+    overlay.innerHTML = `
+        <div style="
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 30px 35px;
+            max-width: 550px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.1);
+        ">
+            <div style="
                 display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 999999;
-                padding: 20px;
-                animation: fadeIn 0.3s ease;
+                justify-content: space-between;
+                align-items: flex-start;
+                border-bottom: 2px solid #10B981;
+                padding-bottom: 16px;
+                margin-bottom: 22px;
             ">
-                <div class="modal" style="
-                    background: #ffffff;
-                    border-radius: 16px;
-                    padding: 30px 32px;
-                    max-width: 600px;
-                    width: 100%;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                    position: relative;
-                    border: 1px solid #e2e8f0;
-                    animation: slideUp 0.3s ease;
-                ">
-                    <div class="modal-header" style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        border-bottom: 2px solid #10B981;
-                        padding-bottom: 14px;
-                        margin-bottom: 18px;
-                    ">
-                        <h5 class="modal-title" style="font-size: 1.25rem; font-weight: 700; margin: 0; color: #0F172A;">
-                            📅 Book Appointment
-                            ${preSelectedDoctorName ? `<br><small style="font-weight:normal;font-size:0.85rem;color:#64748B;">with Dr. ${preSelectedDoctorName}</small>` : ''}
-                        </h5>
-                        <button onclick="document.getElementById('bookingModal').remove()" style="
-                            background: none;
-                            border: none;
-                            font-size: 1.8rem;
-                            cursor: pointer;
-                            color: #94A3B8;
-                            padding: 0 6px;
-                            transition: 0.2s;
-                            line-height: 1;
-                        " onmouseover="this.style.color='#0F172A'" onmouseout="this.style.color='#94A3B8'">
-                            ×
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="bookingForm">
-                            <div class="form-group" style="margin-bottom: 16px;">
-                                <label class="form-label" style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
-                                    👨‍⚕️ Select Doctor
-                                </label>
-                                <select class="form-control" id="doctorSelect" required style="
-                                    width:100%;
-                                    padding:10px 14px;
-                                    border:2px solid #E2E8F0;
-                                    border-radius:8px;
-                                    font-size:0.95rem;
-                                    background:#F8FAFC;
-                                    font-family:Inter,sans-serif;
-                                ">
-                                    <option value="">Select a doctor...</option>
-                                    ${doctorsHtml || '<option value="">No doctors available</option>'}
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 16px;">
-                                <label class="form-label" style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
-                                    ⚙️ Consultation Type
-                                </label>
-                                <select class="form-control" id="consultationType" required style="
-                                    width:100%;
-                                    padding:10px 14px;
-                                    border:2px solid #E2E8F0;
-                                    border-radius:8px;
-                                    font-size:0.95rem;
-                                    background:#F8FAFC;
-                                    font-family:Inter,sans-serif;
-                                ">
-                                    <option value="video">🎥 Video Call - KES 300 (pay after call)</option>
-                                    <option value="physical">🏥 Physical - KES 500 (pay now)</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 16px;">
-                                <label class="form-label" style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
-                                    📅 Date & Time
-                                </label>
-                                <input type="datetime-local" class="form-control" id="appointmentDate" required style="
-                                    width:100%;
-                                    padding:10px 14px;
-                                    border:2px solid #E2E8F0;
-                                    border-radius:8px;
-                                    font-size:0.95rem;
-                                    background:#F8FAFC;
-                                    font-family:Inter,sans-serif;
-                                ">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 16px;">
-                                <label class="form-label" style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;color:#0F172A;">
-                                    📝 Notes (Optional)
-                                </label>
-                                <textarea class="form-control" id="appointmentNotes" rows="2" placeholder="Any specific concerns..." style="
-                                    width:100%;
-                                    padding:10px 14px;
-                                    border:2px solid #E2E8F0;
-                                    border-radius:8px;
-                                    font-size:0.95rem;
-                                    background:#F8FAFC;
-                                    font-family:Inter,sans-serif;
-                                    resize:vertical;
-                                "></textarea>
-                            </div>
-                            <div id="paymentInfo" class="alert alert-info" style="
-                                padding:12px 16px;
-                                border-radius:8px;
-                                background:#EFF6FF;
-                                border:1px solid #BFDBFE;
-                                color:#1E40AF;
-                                margin-bottom:16px;
-                                font-size:0.9rem;
-                            ">
-                                🎥 <strong>Video Call:</strong> KES 300 (pay after call)<br>
-                                🏥 <strong>Physical:</strong> KES 500 (pay now)
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-block" id="bookBtn" style="
-                                width:100%;
-                                padding:13px;
-                                background:#2563EB;
-                                color:white;
-                                border:none;
-                                border-radius:8px;
-                                font-size:1rem;
-                                font-weight:600;
-                                cursor:pointer;
-                                transition:0.3s;
-                                font-family:Inter,sans-serif;
-                                display:flex;
-                                align-items:center;
-                                justify-content:center;
-                                gap:8px;
-                            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(37,99,235,0.35)'" 
-                               onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
-                                📅 Book Now
-                            </button>
-                        </form>
-                    </div>
+                <div>
+                    <h5 style="font-size: 1.3rem; font-weight: 700; margin: 0; color: #0F172A;">
+                        📅 Book Appointment
+                    </h5>
+                    ${preSelectedDoctorName ? `
+                        <small style="display: block; font-size: 0.9rem; color: #64748B; margin-top: 2px;">
+                            with Dr. ${preSelectedDoctorName}
+                        </small>
+                    ` : ''}
                 </div>
+                <button onclick="document.getElementById('bookingModal').remove()" style="
+                    background: none;
+                    border: none;
+                    font-size: 2rem;
+                    cursor: pointer;
+                    color: #94A3B8;
+                    padding: 0 8px;
+                    transition: 0.2s;
+                    line-height: 1;
+                " onmouseover="this.style.color='#0F172A'" onmouseout="this.style.color='#94A3B8'">
+                    ×
+                </button>
             </div>
-            <style>
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                @keyframes slideUp {
-                    from { transform: translateY(30px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-                .modal-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0, 0, 0, 0.6);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 999999;
-                    padding: 20px;
-                }
-            </style>
-        `;
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+            <form id="bookingForm">
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block;font-weight:600;margin-bottom:6px;font-size:0.9rem;color:#0F172A;">
+                        👨‍⚕️ Select Doctor *
+                    </label>
+                    <select id="doctorSelect" required style="
+                        width:100%;
+                        padding:12px 16px;
+                        border:2px solid #E2E8F0;
+                        border-radius:10px;
+                        font-size:0.95rem;
+                        background:#F8FAFC;
+                        font-family:Inter,sans-serif;
+                        transition: border-color 0.2s;
+                    " onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#E2E8F0'">
+                        <option value="">Select a doctor...</option>
+                        ${doctorsHtml || '<option value="">No doctors available</option>'}
+                    </select>
+                </div>
 
-        // Set default date/time
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + 1);
-        defaultDate.setHours(9, 0, 0, 0);
-        const dateInput = document.getElementById('appointmentDate');
-        if (dateInput) {
-            dateInput.value = defaultDate.toISOString().slice(0, 16);
-        }
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block;font-weight:600;margin-bottom:6px;font-size:0.9rem;color:#0F172A;">
+                        ⚙️ Consultation Type *
+                    </label>
+                    <select id="consultationType" required style="
+                        width:100%;
+                        padding:12px 16px;
+                        border:2px solid #E2E8F0;
+                        border-radius:10px;
+                        font-size:0.95rem;
+                        background:#F8FAFC;
+                        font-family:Inter,sans-serif;
+                        transition: border-color 0.2s;
+                    " onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#E2E8F0'">
+                        <option value="video">🎥 Video Call - KES 300 (pay after call)</option>
+                        <option value="physical">🏥 Physical - KES 500 (pay now)</option>
+                    </select>
+                </div>
 
-        // Set pre-selected doctor if provided
-        if (preSelectedDoctorId) {
-            const doctorSelect = document.getElementById('doctorSelect');
-            if (doctorSelect) {
-                doctorSelect.value = preSelectedDoctorId;
-            }
-        }
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block;font-weight:600;margin-bottom:6px;font-size:0.9rem;color:#0F172A;">
+                        📅 Date & Time *
+                    </label>
+                    <input type="datetime-local" id="appointmentDate" required style="
+                        width:100%;
+                        padding:12px 16px;
+                        border:2px solid #E2E8F0;
+                        border-radius:10px;
+                        font-size:0.95rem;
+                        background:#F8FAFC;
+                        font-family:Inter,sans-serif;
+                        transition: border-color 0.2s;
+                    " onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#E2E8F0'">
+                </div>
 
-        // Consultation type change handler
-        const consultationType = document.getElementById('consultationType');
-        if (consultationType) {
-            consultationType.addEventListener('change', (e) => {
-                const type = e.target.value;
-                const info = document.getElementById('paymentInfo');
-                const btn = document.getElementById('bookBtn');
-                
-                if (type === 'video') {
-                    if (info) {
-                        info.innerHTML = '🎥 <strong>Video Call:</strong> KES 300 - Pay <strong>after</strong> the call';
-                        info.style.background = '#EFF6FF';
-                        info.style.borderColor = '#BFDBFE';
-                        info.style.color = '#1E40AF';
-                    }
-                    if (btn) {
-                        btn.innerHTML = '📅 Book Now (Pay Later)';
-                        btn.className = 'btn btn-primary btn-block';
-                        btn.style.background = '#2563EB';
-                    }
-                } else {
-                    if (info) {
-                        info.innerHTML = '🏥 <strong>Physical Consultation:</strong> KES 500 - Pay <strong>now</strong> to book';
-                        info.style.background = '#FEF3C7';
-                        info.style.borderColor = '#FCD34D';
-                        info.style.color = '#92400E';
-                    }
-                    if (btn) {
-                        btn.innerHTML = '💳 Pay KES 500 & Book';
-                        btn.className = 'btn btn-warning btn-block';
-                        btn.style.background = '#F59E0B';
-                    }
-                }
-            });
-        }
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block;font-weight:600;margin-bottom:6px;font-size:0.9rem;color:#0F172A;">
+                        📝 Notes (Optional)
+                    </label>
+                    <textarea id="appointmentNotes" rows="2" placeholder="Any specific concerns or questions..." style="
+                        width:100%;
+                        padding:12px 16px;
+                        border:2px solid #E2E8F0;
+                        border-radius:10px;
+                        font-size:0.95rem;
+                        background:#F8FAFC;
+                        font-family:Inter,sans-serif;
+                        resize:vertical;
+                        transition: border-color 0.2s;
+                    " onfocus="this.style.borderColor='#2563EB'" onblur="this.style.borderColor='#E2E8F0'"></textarea>
+                </div>
 
-        // Form submission
-        const bookingForm = document.getElementById('bookingForm');
-        if (bookingForm) {
-            bookingForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const doctorId = document.getElementById('doctorSelect').value;
-                const consultationType = document.getElementById('consultationType').value;
-                const scheduledAt = document.getElementById('appointmentDate').value;
-                const notes = document.getElementById('appointmentNotes').value;
+                <div id="paymentInfo" style="
+                    padding:14px 18px;
+                    border-radius:10px;
+                    background:#EFF6FF;
+                    border:1px solid #BFDBFE;
+                    color:#1E40AF;
+                    margin-bottom:18px;
+                    font-size:0.9rem;
+                    line-height:1.6;
+                ">
+                    🎥 <strong>Video Call:</strong> KES 300 (pay after call)<br>
+                    🏥 <strong>Physical:</strong> KES 500 (pay now)
+                </div>
 
-                if (!doctorId) {
-                    alert('Please select a doctor.');
-                    return;
-                }
+                <button type="submit" id="bookBtn" style="
+                    width:100%;
+                    padding:14px;
+                    background: linear-gradient(135deg, #2563EB, #1D4ED8);
+                    color:white;
+                    border:none;
+                    border-radius:10px;
+                    font-size:1rem;
+                    font-weight:600;
+                    cursor:pointer;
+                    transition:0.3s;
+                    font-family:Inter,sans-serif;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    gap:10px;
+                    box-shadow: 0 4px 15px rgba(37,99,235,0.3);
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(37,99,235,0.4)'" 
+                   onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 15px rgba(37,99,235,0.3)'">
+                    📅 Book Now
+                </button>
+            </form>
+        </div>
+    `;
 
-                if (!scheduledAt) {
-                    alert('Please select a date and time.');
-                    return;
-                }
+    // Add to body
+    document.body.appendChild(overlay);
 
-                const fee = consultationType === 'video' ? 300 : 500;
-                
-                if (consultationType === 'physical') {
-                    if (!confirm(`Pay KES ${fee} now to book physical consultation?`)) return;
-                } else {
-                    if (!confirm(`Book video consultation? You'll pay KES ${fee} after the call.`)) return;
-                }
+    // Set default date/time (tomorrow at 9 AM)
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 1);
+    defaultDate.setHours(9, 0, 0, 0);
+    const dateInput = document.getElementById('appointmentDate');
+    if (dateInput) {
+        dateInput.value = defaultDate.toISOString().slice(0, 16);
+    }
 
-                // Show loading on button
-                const btn = document.getElementById('bookBtn');
-                if (btn) {
-                    btn.innerHTML = '⏳ Booking...';
-                    btn.disabled = true;
-                }
-
-                const result = await this.bookAppointment(doctorId, consultationType, scheduledAt, notes, fee);
-                alert(result.message);
-                
-                if (result.success) {
-                    const modal = document.getElementById('bookingModal');
-                    if (modal) modal.remove();
-                    this.loadView('appointments');
-                } else {
-                    if (btn) {
-                        btn.innerHTML = '📅 Book Now';
-                        btn.disabled = false;
-                    }
-                }
-            });
-        }
-
-        // Close modal when clicking on overlay background
-        const overlay = document.getElementById('bookingModal');
-        if (overlay) {
-            overlay.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.remove();
-                }
-            });
+    // Pre-select doctor if provided
+    if (preSelectedDoctorId) {
+        const doctorSelect = document.getElementById('doctorSelect');
+        if (doctorSelect) {
+            doctorSelect.value = preSelectedDoctorId;
         }
     }
+
+    // Consultation type change handler
+    const consultationType = document.getElementById('consultationType');
+    if (consultationType) {
+        consultationType.addEventListener('change', function() {
+            const type = this.value;
+            const info = document.getElementById('paymentInfo');
+            const btn = document.getElementById('bookBtn');
+            
+            if (type === 'video') {
+                if (info) {
+                    info.innerHTML = '🎥 <strong>Video Call:</strong> KES 300 - Pay <strong>after</strong> the call';
+                    info.style.background = '#EFF6FF';
+                    info.style.borderColor = '#BFDBFE';
+                    info.style.color = '#1E40AF';
+                }
+                if (btn) {
+                    btn.innerHTML = '📅 Book Now (Pay Later)';
+                    btn.style.background = 'linear-gradient(135deg, #2563EB, #1D4ED8)';
+                }
+            } else {
+                if (info) {
+                    info.innerHTML = '🏥 <strong>Physical Consultation:</strong> KES 500 - Pay <strong>now</strong> to book';
+                    info.style.background = '#FEF3C7';
+                    info.style.borderColor = '#FCD34D';
+                    info.style.color = '#92400E';
+                }
+                if (btn) {
+                    btn.innerHTML = '💳 Pay KES 500 & Book';
+                    btn.style.background = 'linear-gradient(135deg, #F59E0B, #D97706)';
+                }
+            }
+        });
+    }
+
+    // Form submission
+    const bookingForm = document.getElementById('bookingForm');
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const doctorId = document.getElementById('doctorSelect').value;
+            const consultationType = document.getElementById('consultationType').value;
+            const scheduledAt = document.getElementById('appointmentDate').value;
+            const notes = document.getElementById('appointmentNotes').value;
+
+            if (!doctorId) {
+                alert('⚠️ Please select a doctor.');
+                document.getElementById('doctorSelect').focus();
+                return;
+            }
+
+            if (!scheduledAt) {
+                alert('⚠️ Please select a date and time.');
+                document.getElementById('appointmentDate').focus();
+                return;
+            }
+
+            const fee = consultationType === 'video' ? 300 : 500;
+            
+            if (consultationType === 'physical') {
+                if (!confirm(`💰 Pay KES ${fee} now to book physical consultation?`)) {
+                    return;
+                }
+            } else {
+                if (!confirm(`📹 Book video consultation? You'll pay KES ${fee} after the call.`)) {
+                    return;
+                }
+            }
+
+            // Show loading on button
+            const btn = document.getElementById('bookBtn');
+            if (btn) {
+                btn.innerHTML = '⏳ Booking...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+            }
+
+            const result = await this.bookAppointment(doctorId, consultationType, scheduledAt, notes, fee);
+            
+            if (result.success) {
+                alert('✅ ' + result.message);
+                const modal = document.getElementById('bookingModal');
+                if (modal) modal.remove();
+                this.loadView('appointments');
+            } else {
+                alert('❌ ' + result.message);
+                if (btn) {
+                    btn.innerHTML = '📅 Book Now';
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+            }
+        });
+    }
+
+    // Close modal when clicking on overlay background
+    overlay.addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.remove();
+        }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('bookingModal');
+            if (modal) modal.remove();
+        }
+    }, { once: true });
+}
 
     // =============================================
     // PAYMENT FUNCTIONS
