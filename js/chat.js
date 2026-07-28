@@ -1,5 +1,5 @@
 /*
- * File: chat.js - Complete real-time chat with no duplication
+ * File: chat.js - Fixed for current layout
  * Purpose: Handle real-time chat between patients and doctors
  */
 
@@ -11,11 +11,11 @@ class ChatManager {
         this.subscription = null;
         this.messages = [];
         this.isOpen = false;
-        this.messageIds = new Set(); // Track message IDs to prevent duplicates
+        this.messageIds = new Set();
     }
 
     // =============================================
-    // MAIN CHAT INTERFACE
+    // SHOW CHAT INTERFACE - FIXED to work with layout
     // =============================================
     showChatInterface(appointmentId = null, partnerId = null) {
         console.log('💬 Opening chat interface...', { appointmentId, partnerId });
@@ -23,87 +23,71 @@ class ChatManager {
         this.currentAppointmentId = appointmentId;
         this.currentChatPartnerId = partnerId;
         this.isOpen = true;
-        this.messageIds = new Set(); // Reset message IDs
+        this.messageIds = new Set();
 
-        const app = document.getElementById('app');
-        const profile = authManager.getUserProfile();
-        
-        if (!profile) {
-            authManager.showLoginPage();
+        // Get the content area from the current view
+        const contentArea = document.getElementById('doctorContent') || 
+                           document.getElementById('patientContent') || 
+                           document.getElementById('app-content');
+
+        if (!contentArea) {
+            console.error('❌ Content area not found');
             return;
         }
 
-        const isDoctor = profile.role === 'doctor';
-        const isPatient = profile.role === 'patient';
+        // Render chat inside the content area
+        this.renderChatContent(contentArea);
+        
+        // Load conversations
+        this.loadConversations();
+    }
 
-        app.innerHTML = `
-            <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-                <div class="container">
-                    <a class="navbar-brand" href="#">💬 Telehealth Chat</a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav me-auto">
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" id="backToDashboard">⬅️ Back</a>
-                            </li>
-                        </ul>
-                        <span class="navbar-text me-3">👤 ${profile.full_name} (${profile.role})</span>
-                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Logout</button>
-                    </div>
-                </div>
-            </nav>
-            
-            <div class="container mt-4">
-                <div class="row">
-                    <!-- Conversations List - Left Side -->
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h5 class="mb-0">💬 Conversations</h5>
-                            </div>
-                            <div class="card-body p-0">
-                                <div id="conversationList" style="max-height: 550px; overflow-y: auto;">
-                                    <div class="text-center p-4 text-muted">
-                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        <p class="mt-2">Loading conversations...</p>
+    // =============================================
+    // RENDER CHAT CONTENT
+    // =============================================
+    renderChatContent(container) {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">💬 Conversations</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="conversationList" style="max-height: 550px; overflow-y: auto;">
+                                <div class="text-center p-4 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
                                     </div>
+                                    <p class="mt-2">Loading conversations...</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Chat Area - Right Side -->
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0" id="chatTitle">💬 Select a conversation</h5>
-                                <span id="onlineStatus" class="badge bg-secondary">Offline</span>
-                            </div>
-                            <div class="card-body p-0">
-                                <!-- Messages -->
-                                <div id="chatContainer" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
-                                    <div class="text-center text-muted py-5">
-                                        <p>👈 Select a conversation to start chatting</p>
-                                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0" id="chatTitle">💬 Select a conversation</h5>
+                            <span id="onlineStatus" class="badge bg-secondary">Offline</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="chatContainer" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
+                                <div class="text-center text-muted py-5">
+                                    <p>👈 Select a conversation to start chatting</p>
                                 </div>
-                                
-                                <!-- Message Input -->
-                                <div id="messageInputArea" class="p-3 border-top" style="display: none; background: white;">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="messageInput" 
-                                               placeholder="Type your message..." 
-                                               aria-label="Message">
-                                        <button class="btn btn-primary" id="sendMessageBtn">
-                                            <span id="sendBtnText">📤 Send</span>
-                                        </button>
-                                    </div>
-                                    <div class="mt-1">
-                                        <small class="text-muted">Press Enter to send</small>
-                                    </div>
+                            </div>
+                            <div id="messageInputArea" class="p-3 border-top" style="display: none; background: white;">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="messageInput" 
+                                           placeholder="Type your message..." 
+                                           aria-label="Message">
+                                    <button class="btn btn-primary" id="sendMessageBtn">
+                                        <span id="sendBtnText">📤 Send</span>
+                                    </button>
+                                </div>
+                                <div class="mt-1">
+                                    <small class="text-muted">Press Enter to send</small>
                                 </div>
                             </div>
                         </div>
@@ -112,31 +96,14 @@ class ChatManager {
             </div>
         `;
 
-        // Attach event listeners
-        document.getElementById('backToDashboard').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.cleanup();
-            authManager.routeBasedOnRole();
-        });
-
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            this.cleanup();
-            const result = await authManager.logout();
-            if (result.success) {
-                alert(result.message);
-            }
-        });
-
-        document.getElementById('sendMessageBtn').addEventListener('click', () => this.sendMessage());
-        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+        // Attach event listeners for this chat view
+        document.getElementById('sendMessageBtn')?.addEventListener('click', () => this.sendMessage());
+        document.getElementById('messageInput')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
-
-        // Load conversations
-        this.loadConversations();
     }
 
     // =============================================
@@ -202,7 +169,6 @@ class ChatManager {
                 return;
             }
 
-            // Get unique conversations (by partner ID)
             const uniqueConversations = [];
             const seenPartners = new Set();
 
@@ -223,7 +189,6 @@ class ChatManager {
                     }
                 });
 
-                // Get last message for each conversation
                 for (let conv of uniqueConversations) {
                     const { data: lastMsg } = await supabase
                         .from('messages')
@@ -237,7 +202,6 @@ class ChatManager {
                         conv.lastMessageTime = lastMsg[0].sent_at;
                         conv.lastMessageSender = lastMsg[0].sender_id;
                         
-                        // Count unread messages
                         const { count, error: countError } = await supabase
                             .from('messages')
                             .select('*', { count: 'exact', head: true })
@@ -251,7 +215,6 @@ class ChatManager {
                     }
                 }
 
-                // Sort by most recent message
                 uniqueConversations.sort((a, b) => {
                     if (!a.lastMessageTime) return 1;
                     if (!b.lastMessageTime) return -1;
@@ -263,17 +226,12 @@ class ChatManager {
                 conversationList.innerHTML = `
                     <div class="p-4 text-center text-muted">
                         <p>💬 No conversations yet</p>
-                        <small>Book an appointment to start chatting with your doctor.</small>
-                        <br><br>
-                        <button class="btn btn-primary btn-sm" onclick="patientManager?.loadView('appointments')">
-                            📅 Book Appointment
-                        </button>
+                        <small>Book an appointment to start chatting.</small>
                     </div>
                 `;
                 return;
             }
 
-            // Render conversations
             conversationList.innerHTML = uniqueConversations.map(conv => {
                 const partner = conv.partner;
                 const isActive = this.currentChatPartnerId === partner.id;
@@ -301,7 +259,6 @@ class ChatManager {
                 `;
             }).join('');
 
-            // Auto-select first conversation if none selected
             if (!this.currentChatPartnerId && uniqueConversations.length > 0) {
                 const first = uniqueConversations[0];
                 this.selectConversation(first.appointmentId, first.partner.id, first.partner.full_name);
@@ -319,20 +276,23 @@ class ChatManager {
     async selectConversation(appointmentId, partnerId, partnerName, event = null) {
         console.log('💬 Selecting conversation:', { appointmentId, partnerId, partnerName });
         
-        // Reset message IDs for new conversation
         this.messageIds = new Set();
         
         this.currentAppointmentId = appointmentId;
         this.currentChatPartnerId = partnerId;
         this.currentChatPartnerName = partnerName;
 
-        // Update UI
-        document.getElementById('chatTitle').textContent = `💬 ${partnerName}`;
-        document.getElementById('messageInputArea').style.display = 'block';
-        document.getElementById('onlineStatus').textContent = '🟢 Online';
-        document.getElementById('onlineStatus').className = 'badge bg-success';
+        const chatTitle = document.getElementById('chatTitle');
+        const messageInputArea = document.getElementById('messageInputArea');
+        const onlineStatus = document.getElementById('onlineStatus');
 
-        // Highlight selected conversation
+        if (chatTitle) chatTitle.textContent = `💬 ${partnerName}`;
+        if (messageInputArea) messageInputArea.style.display = 'block';
+        if (onlineStatus) {
+            onlineStatus.textContent = '🟢 Online';
+            onlineStatus.className = 'badge bg-success';
+        }
+
         document.querySelectorAll('.conversation-item').forEach(item => {
             item.style.backgroundColor = '';
             item.style.borderLeft = '3px solid transparent';
@@ -345,13 +305,8 @@ class ChatManager {
             }
         }
 
-        // Load messages
         await this.loadMessages();
-
-        // Subscribe to new messages
         this.subscribeToMessages();
-
-        // Mark messages as read
         await this.markMessagesAsRead();
     }
 
@@ -372,30 +327,29 @@ class ChatManager {
 
             if (error) throw error;
 
-            // Clear message IDs and add new ones
             this.messageIds = new Set();
             this.messages = data || [];
             
-            // Track message IDs to prevent duplicates
             this.messages.forEach(msg => {
                 this.messageIds.add(msg.id);
             });
 
             this.renderMessages();
 
-            // Scroll to bottom
             setTimeout(() => {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+                if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
             }, 100);
 
         } catch (error) {
             console.error('Error loading messages:', error);
-            chatContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    Error loading messages: ${error.message}
-                    <br><button class="btn btn-sm btn-primary mt-2" onclick="chatManager.loadMessages()">Retry</button>
-                </div>
-            `;
+            if (chatContainer) {
+                chatContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        Error loading messages: ${error.message}
+                        <br><button class="btn btn-sm btn-primary mt-2" onclick="chatManager.loadMessages()">Retry</button>
+                    </div>
+                `;
+            }
         }
     }
 
@@ -405,6 +359,8 @@ class ChatManager {
     renderMessages() {
         const userId = authManager.getUserId();
         const chatContainer = document.getElementById('chatContainer');
+
+        if (!chatContainer) return;
 
         if (!this.messages || this.messages.length === 0) {
             chatContainer.innerHTML = `
@@ -434,7 +390,6 @@ class ChatManager {
             `;
         }).join('');
 
-        // Scroll to bottom
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
@@ -443,6 +398,8 @@ class ChatManager {
     // =============================================
     async sendMessage() {
         const input = document.getElementById('messageInput');
+        if (!input) return;
+        
         const content = input.value.trim();
 
         if (!content) return;
@@ -455,9 +412,8 @@ class ChatManager {
         const sendBtn = document.getElementById('sendMessageBtn');
         const sendText = document.getElementById('sendBtnText');
 
-        // Disable button
-        sendBtn.disabled = true;
-        sendText.textContent = '⏳ Sending...';
+        if (sendBtn) sendBtn.disabled = true;
+        if (sendText) sendText.textContent = '⏳ Sending...';
 
         try {
             const { data, error } = await supabase
@@ -473,13 +429,10 @@ class ChatManager {
 
             if (error) throw error;
 
-            // Clear input
             input.value = '';
 
-            // Add to local messages (prevent duplicate)
             if (data && data.length > 0) {
                 const newMsg = data[0];
-                // Check if message already exists
                 if (!this.messageIds.has(newMsg.id)) {
                     this.messageIds.add(newMsg.id);
                     this.messages.push(newMsg);
@@ -487,17 +440,20 @@ class ChatManager {
                 }
             }
 
-            // Log activity
-            await authManager.logActivity(userId, 'SEND_MESSAGE', 
-                `Sent message in appointment ${this.currentAppointmentId}`);
+            try {
+                await authManager.logActivity(userId, 'SEND_MESSAGE', 
+                    `Sent message in appointment ${this.currentAppointmentId}`);
+            } catch (logError) {
+                console.warn('Activity log skipped:', logError.message);
+            }
 
         } catch (error) {
             console.error('Error sending message:', error);
             alert('Failed to send message: ' + error.message);
         } finally {
-            sendBtn.disabled = false;
-            sendText.textContent = '📤 Send';
-            document.getElementById('messageInput').focus();
+            if (sendBtn) sendBtn.disabled = false;
+            if (sendText) sendText.textContent = '📤 Send';
+            input.focus();
         }
     }
 
@@ -505,7 +461,6 @@ class ChatManager {
     // SUBSCRIBE TO NEW MESSAGES (Realtime)
     // =============================================
     subscribeToMessages() {
-        // Cleanup existing subscription
         if (this.subscription) {
             this.subscription.unsubscribe();
             this.subscription = null;
@@ -535,10 +490,9 @@ class ChatManager {
     }
 
     // =============================================
-    // HANDLE NEW MESSAGE (Realtime) - NO DUPLICATES
+    // HANDLE NEW MESSAGE
     // =============================================
     handleNewMessage(message) {
-        // Check if message already exists (prevent duplicates)
         if (this.messageIds.has(message.id)) {
             console.log('⚠️ Duplicate message detected, ignoring:', message.id);
             return;
@@ -547,19 +501,11 @@ class ChatManager {
         const userId = authManager.getUserId();
         const isSent = message.sender_id === userId;
         
-        // Add to message IDs set
         this.messageIds.add(message.id);
-        
-        // Add to messages array
         this.messages.push(message);
-        
-        // Update UI
         this.renderMessages();
-
-        // Update conversation list
         this.updateConversationList(message);
 
-        // Mark as read if received
         if (!isSent) {
             this.markMessagesAsRead();
         }
@@ -583,7 +529,6 @@ class ChatManager {
 
             if (error) throw error;
 
-            // Update unread count in conversation list
             document.querySelectorAll('.conversation-item').forEach(item => {
                 const badge = item.querySelector('.badge.bg-danger');
                 if (badge) {
@@ -600,7 +545,6 @@ class ChatManager {
     // UPDATE CONVERSATION LIST
     // =============================================
     updateConversationList(message) {
-        // Find the conversation in the list
         const items = document.querySelectorAll('.conversation-item');
         let targetItem = null;
 
@@ -612,7 +556,6 @@ class ChatManager {
         });
 
         if (targetItem) {
-            // Update the last message preview
             const textTruncate = targetItem.querySelector('.text-truncate');
             if (textTruncate) {
                 const small = textTruncate.querySelector('small');
@@ -621,7 +564,6 @@ class ChatManager {
                 }
             }
 
-            // Update unread badge
             const userId = authManager.getUserId();
             if (message.sender_id !== userId) {
                 let badge = targetItem.querySelector('.badge.bg-danger');
