@@ -1,5 +1,5 @@
 /*
- * File: chat.js - Complete with Debug Logs
+ * File: chat.js - Complete with Debug Logs & Fixed Error Handling
  * Purpose: Handle real-time chat between patients and doctors
  */
 
@@ -13,6 +13,60 @@ class ChatManager {
         this.messages = [];
         this.isOpen = false;
         this.messageIds = new Set();
+        this.initialized = false;
+    }
+
+    /**
+     * Safely get auth manager with error handling
+     */
+    getAuthManager() {
+        if (typeof authManager === 'undefined') {
+            console.error('❌ authManager is not defined!');
+            return null;
+        }
+        return authManager;
+    }
+
+    /**
+     * Safely get user ID with error handling
+     */
+    getUserId() {
+        const auth = this.getAuthManager();
+        if (!auth) return null;
+        try {
+            return auth.getUserId();
+        } catch (error) {
+            console.error('❌ Error getting user ID:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Safely get user role with error handling
+     */
+    getUserRole() {
+        const auth = this.getAuthManager();
+        if (!auth) return null;
+        try {
+            return auth.getUserRole() || 'patient';
+        } catch (error) {
+            console.error('❌ Error getting user role:', error);
+            return 'patient';
+        }
+    }
+
+    /**
+     * Safely get user profile with error handling
+     */
+    getUserProfile() {
+        const auth = this.getAuthManager();
+        if (!auth) return null;
+        try {
+            return auth.getUserProfile();
+        } catch (error) {
+            console.error('❌ Error getting user profile:', error);
+            return null;
+        }
     }
 
     // =============================================
@@ -25,6 +79,41 @@ class ChatManager {
         console.log('📌 partnerId:', partnerId);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
+        // Check if auth is available
+        const auth = this.getAuthManager();
+        if (!auth) {
+            console.error('❌ Auth manager not available');
+            const contentArea = document.getElementById('app-content') || 
+                               document.getElementById('patientContent') || 
+                               document.getElementById('doctorContent');
+            if (contentArea) {
+                contentArea.innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Authentication not available. Please refresh the page and try again.
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        // Check if user is logged in
+        const userId = this.getUserId();
+        if (!userId) {
+            console.error('❌ User not authenticated');
+            const contentArea = document.getElementById('app-content') || 
+                               document.getElementById('patientContent') || 
+                               document.getElementById('doctorContent');
+            if (contentArea) {
+                contentArea.innerHTML = `
+                    <div class="alert alert-warning">
+                        ⚠️ Please log in to use the chat feature.
+                        <button class="btn btn-primary mt-2" onclick="location.reload()">Refresh</button>
+                    </div>
+                `;
+            }
+            return;
+        }
+
         try {
             // Set chat state
             this.currentAppointmentId = appointmentId;
@@ -70,9 +159,23 @@ class ChatManager {
             this.loadConversations();
             
             console.log('✅ showChatInterface completed');
+            this.initialized = true;
         } catch (error) {
             console.error('❌ Error in showChatInterface:', error);
             console.error('❌ Error stack:', error.stack);
+            
+            // Show error in UI
+            const contentArea = document.getElementById('patientContent') || 
+                               document.getElementById('doctorContent') || 
+                               document.getElementById('app-content');
+            if (contentArea) {
+                contentArea.innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Error loading chat: ${error.message}
+                        <br><button class="btn btn-primary mt-2" onclick="location.reload()">Refresh</button>
+                    </div>
+                `;
+            }
         }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
@@ -172,14 +275,16 @@ class ChatManager {
     }
 
     // =============================================
-    // LOAD CONVERSATIONS - WITH DEBUG LOGS
+    // LOAD CONVERSATIONS - WITH FIXED AUTH CHECKS
     // =============================================
     async loadConversations() {
         console.log('📞 loadConversations called');
         
         try {
-            const userId = authManager.getUserId();
-            const role = authManager.getUserRole();
+            // Get auth data safely
+            const userId = this.getUserId();
+            const role = this.getUserRole();
+            
             console.log('👤 User ID:', userId);
             console.log('👤 User Role:', role);
             
@@ -193,12 +298,30 @@ class ChatManager {
 
             if (!userId) {
                 console.warn('⚠️ No user ID found');
-                conversationList.innerHTML = '<p class="p-3 text-muted">Please login to see conversations</p>';
+                conversationList.innerHTML = `
+                    <div class="p-4 text-center text-muted">
+                        <p>🔒 Please log in to see conversations</p>
+                        <button class="btn btn-primary btn-sm mt-2" onclick="location.reload()">Refresh</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Check if supabase is available
+            if (typeof supabase === 'undefined') {
+                console.error('❌ Supabase not available');
+                conversationList.innerHTML = `
+                    <div class="p-4 text-center text-danger">
+                        <p>❌ Database connection not available</p>
+                        <button class="btn btn-primary btn-sm mt-2" onclick="location.reload()">Refresh</button>
+                    </div>
+                `;
                 return;
             }
 
             console.log('📊 Building query for role:', role);
             let query;
+            
             if (role === 'patient') {
                 query = supabase
                     .from('appointments')
@@ -238,7 +361,11 @@ class ChatManager {
                 console.log('🔍 Doctor query built');
             } else {
                 console.warn('⚠️ Unknown role:', role);
-                conversationList.innerHTML = '<p class="p-3 text-muted">No conversations available</p>';
+                conversationList.innerHTML = `
+                    <div class="p-4 text-center text-muted">
+                        <p>No conversations available</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -262,7 +389,7 @@ class ChatManager {
                 console.log('📊 Processing', data.length, 'appointments');
                 data.forEach(conv => {
                     const partner = role === 'patient' ? conv.doctor : conv.patient;
-                    if (partner && !seenPartners.has(partner.id)) {
+                    if (partner && partner.id && !seenPartners.has(partner.id)) {
                         seenPartners.add(partner.id);
                         uniqueConversations.push({
                             appointmentId: conv.id,
@@ -279,18 +406,24 @@ class ChatManager {
 
                 // Get last message for each conversation
                 for (let conv of uniqueConversations) {
-                    console.log('📩 Fetching last message for:', conv.partner.full_name);
-                    const { data: lastMsg } = await supabase
-                        .from('messages')
-                        .select('*')
-                        .eq('appointment_id', conv.appointmentId)
-                        .order('sent_at', { ascending: false })
-                        .limit(1);
+                    try {
+                        console.log('📩 Fetching last message for:', conv.partner.full_name || 'Unknown');
+                        const { data: lastMsg, error: lastError } = await supabase
+                            .from('messages')
+                            .select('*')
+                            .eq('appointment_id', conv.appointmentId)
+                            .order('sent_at', { ascending: false })
+                            .limit(1);
 
-                    if (lastMsg && lastMsg.length > 0) {
-                        conv.lastMessage = lastMsg[0].content;
-                        conv.lastMessageTime = lastMsg[0].sent_at;
-                        console.log('📩 Last message found:', conv.lastMessage.substring(0, 30) + '...');
+                        if (lastError) {
+                            console.warn('⚠️ Error fetching last message:', lastError);
+                        } else if (lastMsg && lastMsg.length > 0) {
+                            conv.lastMessage = lastMsg[0].content;
+                            conv.lastMessageTime = lastMsg[0].sent_at;
+                            console.log('📩 Last message found:', (conv.lastMessage || '').substring(0, 30) + '...');
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Error in last message query:', e);
                     }
                 }
 
@@ -318,15 +451,17 @@ class ChatManager {
                 const isActive = this.currentChatPartnerId === partner.id;
                 const lastMsg = conv.lastMessage || 'No messages yet';
                 const timeAgo = conv.lastMessageTime ? this.timeAgo(new Date(conv.lastMessageTime)) : '';
+                const partnerName = partner.full_name || 'Unknown';
+                const specialty = partner.specialty || 'Patient';
                 
                 return `
                     <div class="conversation-item p-3 border-bottom ${isActive ? 'active' : ''}" 
                          style="cursor: pointer; ${isActive ? 'background-color: #e3f2fd; border-left: 3px solid #1976d2;' : ''}"
-                         onclick="chatManager.selectConversation('${conv.appointmentId}', '${partner.id}', '${partner.full_name}', event)">
+                         onclick="chatManager.selectConversation('${conv.appointmentId}', '${partner.id}', '${this.escapeHtml(partnerName)}', event)">
                         <div class="d-flex justify-content-between align-items-start">
                             <div style="flex: 1;">
-                                <h6 class="mb-0">${partner.full_name}</h6>
-                                <small class="text-muted">${partner.specialty || 'Patient'}</small>
+                                <h6 class="mb-0">${this.escapeHtml(partnerName)}</h6>
+                                <small class="text-muted">${this.escapeHtml(specialty)}</small>
                                 <div class="text-truncate" style="max-width: 150px;">
                                     <small class="text-muted">${this.escapeHtml(lastMsg.substring(0, 40))}${lastMsg.length > 40 ? '...' : ''}</small>
                                 </div>
@@ -353,7 +488,13 @@ class ChatManager {
             console.error('❌ Error stack:', error.stack);
             const conversationList = document.getElementById('conversationList');
             if (conversationList) {
-                conversationList.innerHTML = `<p class="p-3 text-danger">Error: ${error.message}</p>`;
+                conversationList.innerHTML = `
+                    <div class="p-3 text-center text-danger">
+                        <p>❌ Error loading conversations</p>
+                        <small>${error.message}</small>
+                        <br><button class="btn btn-primary btn-sm mt-2" onclick="chatManager.loadConversations()">Retry</button>
+                    </div>
+                `;
             }
         }
     }
@@ -369,6 +510,14 @@ class ChatManager {
         console.log('📌 partnerName:', partnerName);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
+        // Check if user is authenticated
+        const userId = this.getUserId();
+        if (!userId) {
+            console.warn('⚠️ No user ID, cannot select conversation');
+            alert('Please log in to send messages.');
+            return;
+        }
+        
         try {
             this.messageIds = new Set();
             
@@ -382,7 +531,7 @@ class ChatManager {
             const onlineStatus = document.getElementById('onlineStatus');
 
             if (chatTitle) {
-                chatTitle.textContent = `💬 ${partnerName}`;
+                chatTitle.textContent = `💬 ${partnerName || 'Unknown'}`;
                 console.log('✅ Chat title updated');
             }
             if (messageInputArea) {
@@ -422,6 +571,16 @@ class ChatManager {
         } catch (error) {
             console.error('❌ Error in selectConversation:', error);
             console.error('❌ Error stack:', error.stack);
+            
+            // Show error in chat container
+            const chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                chatContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Error loading conversation: ${error.message}
+                    </div>
+                `;
+            }
         }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
@@ -440,6 +599,11 @@ class ChatManager {
 
         const chatContainer = document.getElementById('chatContainer');
         console.log('📄 chatContainer:', chatContainer ? 'FOUND' : 'NOT FOUND');
+
+        if (!chatContainer) {
+            console.warn('⚠️ chatContainer not found');
+            return;
+        }
 
         try {
             console.log('🚀 Fetching messages from Supabase...');
@@ -496,11 +660,21 @@ class ChatManager {
         console.log('📩 Messages count:', this.messages?.length || 0);
         
         try {
-            const userId = authManager.getUserId();
+            const userId = this.getUserId();
             const chatContainer = document.getElementById('chatContainer');
 
             if (!chatContainer) {
                 console.warn('⚠️ chatContainer not found');
+                return;
+            }
+
+            if (!userId) {
+                console.warn('⚠️ No user ID for rendering messages');
+                chatContainer.innerHTML = `
+                    <div class="text-center text-warning py-5">
+                        <p>🔒 Please log in to view messages</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -519,12 +693,13 @@ class ChatManager {
             chatContainer.innerHTML = this.messages.map(msg => {
                 const isSent = msg.sender_id === userId;
                 const time = new Date(msg.sent_at).toLocaleTimeString();
+                const content = this.escapeHtml(msg.content || '');
                 
                 return `
                     <div class="message-wrapper mb-2 ${isSent ? 'text-end' : 'text-start'}">
                         <div class="chat-message ${isSent ? 'sent' : 'received'} d-inline-block p-2 rounded"
                              style="max-width: 75%; ${isSent ? 'background: #0087CC; color: white;' : 'background: white; border: 1px solid #e0e0e0;'}">
-                            <p class="mb-1" style="word-wrap: break-word;">${this.escapeHtml(msg.content)}</p>
+                            <p class="mb-1" style="word-wrap: break-word;">${content}</p>
                             <small class="${isSent ? 'text-light' : 'text-muted'}" style="font-size: 0.7rem;">
                                 ${time} 
                                 ${msg.read_at ? '✅' : '✓'}
@@ -572,7 +747,13 @@ class ChatManager {
                 return;
             }
 
-            const userId = authManager.getUserId();
+            const userId = this.getUserId();
+            if (!userId) {
+                console.warn('⚠️ No user ID');
+                alert('Please log in to send messages.');
+                return;
+            }
+            
             console.log('👤 Sender ID:', userId);
             
             const sendBtn = document.getElementById('sendMessageBtn');
@@ -581,6 +762,11 @@ class ChatManager {
             if (sendBtn) sendBtn.disabled = true;
             if (sendText) sendText.textContent = '⏳ Sending...';
             console.log('📤 Send button disabled');
+
+            // Check if supabase is available
+            if (typeof supabase === 'undefined') {
+                throw new Error('Database connection not available');
+            }
 
             console.log('🚀 Inserting message into Supabase...');
             const { data, error } = await supabase
@@ -645,6 +831,12 @@ class ChatManager {
                 return;
             }
 
+            // Check if supabase is available
+            if (typeof supabase === 'undefined') {
+                console.warn('⚠️ Supabase not available for subscription');
+                return;
+            }
+
             console.log('📡 Subscribing to messages for:', this.currentAppointmentId);
 
             this.subscription = supabase
@@ -686,7 +878,7 @@ class ChatManager {
                 return;
             }
 
-            const userId = authManager.getUserId();
+            const userId = this.getUserId();
             const isSent = message.sender_id === userId;
             console.log('📩 Message from:', isSent ? 'me' : 'other');
             
@@ -718,7 +910,17 @@ class ChatManager {
             return;
         }
 
-        const userId = authManager.getUserId();
+        const userId = this.getUserId();
+        if (!userId) {
+            console.warn('⚠️ No user ID for marking messages as read');
+            return;
+        }
+
+        // Check if supabase is available
+        if (typeof supabase === 'undefined') {
+            console.warn('⚠️ Supabase not available for marking messages as read');
+            return;
+        }
 
         try {
             console.log('🚀 Updating messages as read...');
@@ -777,7 +979,7 @@ class ChatManager {
                     }
                 }
 
-                const userId = authManager.getUserId();
+                const userId = this.getUserId();
                 if (message.sender_id !== userId) {
                     let badge = targetItem.querySelector('.badge.bg-danger');
                     if (!badge) {
@@ -819,6 +1021,7 @@ class ChatManager {
     }
 
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -843,6 +1046,7 @@ class ChatManager {
             this.messages = [];
             this.messageIds = new Set();
             this.isOpen = false;
+            this.initialized = false;
             console.log('🧹 Chat state cleared');
         } catch (error) {
             console.error('❌ Error in cleanup:', error);
@@ -853,6 +1057,25 @@ class ChatManager {
 
 // Initialize chat manager
 console.log('🚀 Creating ChatManager instance...');
-const chatManager = new ChatManager();
-window.chatManager = chatManager;
-console.log('✅ ChatManager initialized and attached to window');
+
+// Wait for authManager to be available before initializing
+function initChatManager() {
+    if (typeof authManager !== 'undefined' && authManager) {
+        console.log('✅ Auth manager detected, initializing ChatManager...');
+        const chatManager = new ChatManager();
+        window.chatManager = chatManager;
+        console.log('✅ ChatManager initialized and attached to window');
+        return chatManager;
+    } else {
+        console.log('⏳ Waiting for authManager to be available...');
+        setTimeout(initChatManager, 500);
+    }
+}
+
+// Start initialization
+initChatManager();
+
+// Also expose initialization function for manual retry
+window.initChatManager = initChatManager;
+
+console.log('✅ ChatManager script loaded');
