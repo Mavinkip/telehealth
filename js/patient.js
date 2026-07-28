@@ -114,22 +114,26 @@ class PatientManager {
     }
 
     attachEvents() {
-        document.querySelectorAll('.nav-item[data-view]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const view = link.dataset.view;
-                console.log('📱 Navigating to:', view);
-                
-                document.querySelectorAll('.nav-item[data-view]').forEach(l => {
-                    l.classList.remove('active');
+        // Safely attach events with null checks
+        const navLinks = document.querySelectorAll('.nav-item[data-view]');
+        if (navLinks.length > 0) {
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const view = link.dataset.view;
+                    console.log('📱 Navigating to:', view);
+                    
+                    document.querySelectorAll('.nav-item[data-view]').forEach(l => {
+                        l.classList.remove('active');
+                    });
+                    link.classList.add('active');
+                    
+                    this.loadView(view);
+                    this.closeMobileSidebar();
                 });
-                link.classList.add('active');
-                
-                this.loadView(view);
-                this.closeMobileSidebar();
             });
-        });
+        }
 
         const toggleBtn = document.getElementById('sidebarToggle');
         if (toggleBtn) {
@@ -292,7 +296,7 @@ class PatientManager {
     }
 
     // =============================================
-    // CHAT CONTENT - FIXED (no routeBasedOnRole)
+    // CHAT CONTENT - FIXED
     // =============================================
     async loadChatContent(container) {
         console.log('💬 Loading chat content...');
@@ -337,7 +341,7 @@ class PatientManager {
                         <div class="card-body">
                             ${chatPartners && chatPartners.length > 0
                                 ? chatPartners.map(partner => `
-                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom clickable" onclick="patientManager.openChatWithUser('${partner.id}')" style="cursor:pointer;">
+                                    <div class="d-flex justify-content-between align-items-center p-2 border-bottom" onclick="patientManager.openChatWithUser('${partner.id}')" style="cursor:pointer;">
                                         <div>
                                             <strong>${partner.role === 'doctor' ? '👨‍⚕️' : '👤'} ${partner.full_name}</strong>
                                             <p class="mb-0 small text-muted">${partner.lastMessage?.substring(0, 50) || 'No messages'}</p>
@@ -436,7 +440,7 @@ class PatientManager {
             ${todaysMeds && todaysMeds.length > 0 ? `
                 <div class="row mt-3">
                     <div class="col-12">
-                        <div class="card border-success clickable" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
+                        <div class="card border-success" onclick="patientManager.loadView('medications')" style="cursor:pointer;">
                             <div class="card-header bg-success text-white">
                                 <h5 class="mb-0">⏰ Today's Medication Schedule</h5>
                                 <span class="badge bg-light text-dark">${todaysMeds.length} pending</span>
@@ -461,7 +465,7 @@ class PatientManager {
 
             <div class="row mt-4">
                 <div class="col-12">
-                    <div class="card clickable" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
+                    <div class="card" onclick="patientManager.loadView('appointments')" style="cursor:pointer;">
                         <div class="card-header">
                             <h5 class="card-title">📅 Upcoming Appointments</h5>
                             <span class="badge bg-primary">${upcomingAppointments?.length || 0}</span>
